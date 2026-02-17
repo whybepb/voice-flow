@@ -1,55 +1,55 @@
 'use client';
 
 import React from 'react';
+import { LucideIcon, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
+import { HoverCard } from '@/components/ui/Motion';
+import { cn } from '@/lib/utils';
 
 interface StatCardProps {
     title: string;
     value: string | number;
-    icon: React.ReactNode;
-    trend?: { value: number; isPositive: boolean };
-    color?: string;
+    trend: 'up' | 'down' | 'neutral';
+    trendValue: string;
+    icon: LucideIcon;
+    color?: 'primary' | 'emerald' | 'amber' | 'rose' | 'violet';
 }
 
-export default function StatCard({ title, value, icon, trend, color = 'primary' }: StatCardProps) {
-    const colorMap: Record<string, string> = {
-        primary: 'from-indigo-500/20 to-indigo-600/5 border-indigo-500/20',
-        success: 'from-emerald-500/20 to-emerald-600/5 border-emerald-500/20',
-        warning: 'from-amber-500/20 to-amber-600/5 border-amber-500/20',
-        danger: 'from-red-500/20 to-red-600/5 border-red-500/20',
-        info: 'from-blue-500/20 to-blue-600/5 border-blue-500/20',
-    };
+const colorMap = {
+    primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20' },
+    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-500', border: 'border-emerald-500/20' },
+    amber: { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20' },
+    rose: { bg: 'bg-rose-500/10', text: 'text-rose-500', border: 'border-rose-500/20' },
+    violet: { bg: 'bg-violet-500/10', text: 'text-violet-500', border: 'border-violet-500/20' },
+};
 
-    const iconColorMap: Record<string, string> = {
-        primary: 'text-indigo-400 bg-indigo-500/15',
-        success: 'text-emerald-400 bg-emerald-500/15',
-        warning: 'text-amber-400 bg-amber-500/15',
-        danger: 'text-red-400 bg-red-500/15',
-        info: 'text-blue-400 bg-blue-500/15',
-    };
+export default function StatCard({ title, value, trend, trendValue, icon: Icon, color = 'primary' }: StatCardProps) {
+    const styles = colorMap[color];
 
     return (
-        <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br p-5
-      ${colorMap[color]} backdrop-blur-sm hover:scale-[1.02] transition-transform duration-300`}>
+        <HoverCard className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-sm transition-colors hover:bg-white/10 group">
             <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted">{title}</p>
-                    <p className="text-3xl font-bold text-foreground">{value}</p>
-                    {trend && (
-                        <div className={`flex items-center gap-1 text-xs font-medium ${trend.isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                            <svg className={`w-3 h-3 ${!trend.isPositive ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17l5-5 5 5M7 7l5 5 5-5" />
-                            </svg>
-                            {trend.value}% from last week
-                        </div>
-                    )}
+                <div className="space-y-4">
+                    <div className={cn("p-2.5 w-10 h-10 rounded-xl flex items-center justify-center transition-colors", styles.bg)}>
+                        <Icon className={cn("w-5 h-5", styles.text)} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+                        <h3 className="text-2xl font-bold mt-1 text-white tracking-tight">{value}</h3>
+                    </div>
                 </div>
-                <div className={`p-3 rounded-lg ${iconColorMap[color]}`}>
-                    {icon}
+
+                <div className={cn(
+                    "flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg border",
+                    trend === 'up' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                        trend === 'down' ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                            "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                )}>
+                    {trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> :
+                        trend === 'down' ? <ArrowDownRight className="w-3 h-3" /> :
+                            <Minus className="w-3 h-3" />}
+                    <span>{trendValue}</span>
                 </div>
             </div>
-
-            {/* Decorative glow */}
-            <div className="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
-        </div>
+        </HoverCard>
     );
 }

@@ -1,66 +1,96 @@
 @import "tailwindcss";
 
-@theme inline {
-  --color-background: #0f1117;
-  --color-foreground: #e5e7eb;
-  --color-card: #1a1d2e;
-  --color-card-hover: #222640;
-  --color-border: #2a2e42;
-  --color-primary: #6366f1;
-  --color-primary-hover: #818cf8;
-  --color-secondary: #8b5cf6;
-  --color-accent: #a78bfa;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
-  --color-muted: #6b7280;
-  --color-sidebar: #111322;
-  --color-sidebar-hover: #1e2138;
-  --color-header: #13152a;
+@theme {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius: 1rem;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+  /* Using a deep, rich dark theme palette */
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #6366f1;
+  /* Indigo-500 */
+  --primary-foreground: #fafafa;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #71717a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #6366f1;
 }
 
-body {
-  background: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-foreground;
+    /* Subtle mesh gradient background */
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 0% 50%, rgba(168, 85, 247, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 100% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+@layer utilities {
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/5 shadow-2xl shadow-black/40;
+  }
 
-::-webkit-scrollbar-track {
-  background: var(--color-background);
-}
+  .glass-panel {
+    @apply bg-black/40 backdrop-blur-md border border-white/5;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
-}
+  .text-glow {
+    text-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
-}
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
 
-/* Smooth transitions globally */
-* {
-  transition-property: background-color, border-color, color, opacity;
-  transition-timing-function: ease;
-  transition-duration: 150ms;
-}
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
 
-/* Remove transition from layout-affecting properties */
-input, textarea, select {
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted/30 rounded-full hover:bg-muted/50 transition-colors;
+  }
 }

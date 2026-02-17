@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 
 interface ModalProps {
     isOpen: boolean;
@@ -10,19 +10,16 @@ interface ModalProps {
 }
 
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
-    const overlayRef = useRef<HTMLDivElement>(null);
-    const panelRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
+        const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
         };
         if (isOpen) {
-            document.addEventListener('keydown', handleEscape);
+            document.addEventListener('keydown', handleEsc);
             document.body.style.overflow = 'hidden';
         }
         return () => {
-            document.removeEventListener('keydown', handleEscape);
+            document.removeEventListener('keydown', handleEsc);
             document.body.style.overflow = '';
         };
     }, [isOpen, onClose]);
@@ -30,34 +27,23 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     if (!isOpen) return null;
 
     return (
-        <div
-            ref={overlayRef}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-        >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-            {/* Panel */}
-            <div
-                ref={panelRef}
-                className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200"
-            >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                    <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+                    <h2 className="text-[16px] font-bold text-foreground">{title}</h2>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-lg hover:bg-card-hover text-muted hover:text-foreground cursor-pointer"
+                        className="p-1.5 rounded-lg hover:bg-card-hover text-muted hover:text-foreground cursor-pointer transition-colors"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
-
                 {/* Body */}
-                <div className="px-6 py-4">
+                <div className="px-6 py-5">
                     {children}
                 </div>
             </div>

@@ -2,79 +2,85 @@
 
 import React from 'react';
 import Chart from '@/components/Chart';
-import { analyticsData } from '@/lib/data';
+import { analytics } from '@/lib/data';
+import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { CheckCircle2, XCircle, RefreshCw, PhoneForwarded } from 'lucide-react';
 
 export default function AnalyticsPage() {
-    // Summary stats from latest data point
-    const latest = analyticsData[analyticsData.length - 1];
+    const metrics = [
+        { title: 'Confirmation Rate', value: '84%', sub: '↑ 2% this month', color: 'emerald', icon: CheckCircle2 },
+        { title: 'Cancellation Rate', value: '9%', sub: '↓ 1% this month', color: 'rose', icon: XCircle },
+        { title: 'Reschedule Rate', value: '6%', sub: '↑ 1% this month', color: 'blue', icon: RefreshCw },
+        { title: 'Call Success Rate', value: '87%', sub: '↑ 3% this month', color: 'violet', icon: PhoneForwarded },
+    ];
 
     return (
-        <div className="space-y-6">
-            {/* Page header */}
-            <div>
-                <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
-                <p className="text-sm text-muted mt-1">Track performance metrics and call outcomes</p>
-            </div>
+        <StaggerContainer className="space-y-8">
+            <FadeIn>
+                <h1 className="text-3xl font-bold text-foreground tracking-tight">Analytics</h1>
+                <p className="text-sm text-muted-foreground mt-1.5">Track performance metrics and call outcomes over time</p>
+            </FadeIn>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Confirmation Rate</p>
-                    <p className="text-2xl font-bold text-emerald-400 mt-1">{latest.confirmationRate}%</p>
-                    <p className="text-xs text-emerald-400/70 mt-1">↑ 2% this month</p>
+            <FadeIn delay={0.1}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {metrics.map((m, i) => (
+                        <div
+                            key={i}
+                            className={`rounded-2xl border border-white/5 bg-${m.color}-500/5 p-6 backdrop-blur-sm relative overflow-hidden group hover:border-${m.color}-500/20 transition-colors`}
+                        >
+                            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-${m.color}-500`}>
+                                <m.icon className="w-16 h-16" />
+                            </div>
+                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{m.title}</p>
+                            <h3 className={`text-3xl font-bold text-${m.color}-400 mb-1`}>{m.value}</h3>
+                            <p className={`text-xs font-medium text-${m.color}-500/80`}>{m.sub}</p>
+                        </div>
+                    ))}
                 </div>
-                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Cancellation Rate</p>
-                    <p className="text-2xl font-bold text-red-400 mt-1">{latest.cancellationRate}%</p>
-                    <p className="text-xs text-red-400/70 mt-1">↓ 1% this month</p>
-                </div>
-                <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Reschedule Rate</p>
-                    <p className="text-2xl font-bold text-blue-400 mt-1">{latest.rescheduleRate}%</p>
-                    <p className="text-xs text-blue-400/70 mt-1">↑ 1% this month</p>
-                </div>
-                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Call Success Rate</p>
-                    <p className="text-2xl font-bold text-violet-400 mt-1">{latest.callSuccessRate}%</p>
-                    <p className="text-xs text-violet-400/70 mt-1">↑ 3% this month</p>
-                </div>
-            </div>
+            </FadeIn>
 
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Chart
-                    data={analyticsData}
-                    dataKey="confirmationRate"
-                    title="Confirmation Rate"
-                    subtitle="Percentage of bookings confirmed via AI calls"
-                    color="#10b981"
-                    type="area"
-                />
-                <Chart
-                    data={analyticsData}
-                    dataKey="cancellationRate"
-                    title="Cancellation Rate"
-                    subtitle="Percentage of bookings cancelled"
-                    color="#ef4444"
-                    type="bar"
-                />
-                <Chart
-                    data={analyticsData}
-                    dataKey="rescheduleRate"
-                    title="Reschedule Rate"
-                    subtitle="Percentage of bookings rescheduled"
-                    color="#3b82f6"
-                    type="line"
-                />
-                <Chart
-                    data={analyticsData}
-                    dataKey="callSuccessRate"
-                    title="Call Success Rate"
-                    subtitle="Percentage of calls that connected successfully"
-                    color="#8b5cf6"
-                    type="area"
-                />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <FadeIn delay={0.2}>
+                    <Chart
+                        data={analytics.confirmationRate}
+                        dataKey="value"
+                        title="Confirmation Rate"
+                        subtitle="Percentage of bookings confirmed via AI calls"
+                        color="#10b981"
+                        type="line"
+                    />
+                </FadeIn>
+                <FadeIn delay={0.3}>
+                    <Chart
+                        data={analytics.cancellationRate}
+                        dataKey="value"
+                        title="Cancellation Rate"
+                        subtitle="Percentage of bookings cancelled"
+                        color="#f43f5e"
+                        type="bar"
+                    />
+                </FadeIn>
+                <FadeIn delay={0.4}>
+                    <Chart
+                        data={analytics.rescheduleRate}
+                        dataKey="value"
+                        title="Reschedule Rate"
+                        subtitle="Percentage of bookings rescheduled"
+                        color="#3b82f6"
+                        type="line"
+                    />
+                </FadeIn>
+                <FadeIn delay={0.5}>
+                    <Chart
+                        data={analytics.callSuccessRate}
+                        dataKey="value"
+                        title="Call Success Rate"
+                        subtitle="Percentage of calls that connected successfully"
+                        color="#8b5cf6"
+                        type="line"
+                    />
+                </FadeIn>
             </div>
-        </div>
+        </StaggerContainer>
     );
 }

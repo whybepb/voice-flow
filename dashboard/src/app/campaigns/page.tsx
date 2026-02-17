@@ -1,169 +1,116 @@
 'use client';
 
 import React, { useState } from 'react';
-import DataTable, { Column } from '@/components/DataTable';
+import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
-import { campaigns, Campaign } from '@/lib/data';
-
-const columns: Column<Campaign>[] = [
-    {
-        key: 'name',
-        header: 'Campaign Name',
-        render: (item) => <span className="font-medium text-foreground">{item.name}</span>,
-    },
-    {
-        key: 'date',
-        header: 'Date',
-        render: (item) => <span className="text-muted">{item.date}</span>,
-    },
-    {
-        key: 'type',
-        header: 'Type',
-        render: (item) => (
-            <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                {item.type}
-            </span>
-        ),
-    },
-    {
-        key: 'totalCalls',
-        header: 'Total Calls',
-    },
-    {
-        key: 'successful',
-        header: 'Successful',
-        render: (item) => <span className="text-emerald-400 font-medium">{item.successful}</span>,
-    },
-    {
-        key: 'failed',
-        header: 'Failed',
-        render: (item) => <span className="text-red-400 font-medium">{item.failed}</span>,
-    },
-    {
-        key: 'status',
-        header: 'Status',
-        render: (item) => <StatusBadge status={item.status} />,
-    },
-];
+import { campaigns } from '@/lib/data';
+import { Campaign } from '@/lib/data';
+import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { Plus, Megaphone, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
 export default function CampaignsPage() {
     const [modalOpen, setModalOpen] = useState(false);
-    const [campaignStarted, setCampaignStarted] = useState(false);
 
-    const handleStartCampaign = () => {
-        setCampaignStarted(true);
-        setTimeout(() => {
-            setCampaignStarted(false);
-            setModalOpen(false);
-        }, 2000);
-    };
+    const columns = [
+        { header: 'Campaign Name', accessor: 'name', render: (row: Campaign) => <span className="font-medium text-foreground">{row.name}</span> },
+        { header: 'Type', accessor: 'type' },
+        { header: 'Status', accessor: 'status', render: (row: Campaign) => <StatusBadge status={row.status} /> },
+        { header: 'Sent', accessor: 'sent' },
+        { header: 'Connected', accessor: 'connected' },
+        { header: 'Converted', accessor: 'converted' },
+    ];
 
     return (
-        <div className="space-y-6">
-            {/* Page header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <StaggerContainer className="space-y-8">
+            {/* Header */}
+            <FadeIn className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Call Campaigns</h1>
-                    <p className="text-sm text-muted mt-1">Manage and trigger automated confirmation calls</p>
+                    <h1 className="text-3xl font-bold text-foreground tracking-tight">Call Campaigns</h1>
+                    <p className="text-sm text-muted-foreground mt-1.5">Manage automated voice outreach campaigns</p>
                 </div>
-                <Button onClick={() => setModalOpen(true)} size="md">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Start New Campaign
+                <Button onClick={() => setModalOpen(true)} className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Campaign
                 </Button>
-            </div>
+            </FadeIn>
 
             {/* Campaign Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="rounded-xl border border-border bg-card/50 p-4 backdrop-blur-sm">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Total Campaigns</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{campaigns.length}</p>
+            <FadeIn delay={0.1}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {[
+                        { label: 'Active Campaigns', value: '3', icon: Megaphone, color: 'primary' },
+                        { label: 'Calls Completed', value: '1,248', icon: CheckCircle, color: 'emerald' },
+                        { label: 'Pending Calls', value: '432', icon: Clock, color: 'amber' },
+                        { label: 'Failed Connection', value: '12%', icon: AlertTriangle, color: 'rose' },
+                    ].map((stat, i) => (
+                        <div key={i} className="rounded-2xl border border-white/5 bg-card/40 p-6 backdrop-blur-sm flex items-center gap-4 hover:border-white/10 transition-colors">
+                            <div className={`p-3 rounded-xl bg-${stat.color === 'primary' ? 'indigo' : stat.color}-500/10 text-${stat.color === 'primary' ? 'indigo' : stat.color}-500`}>
+                                <stat.icon className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{stat.label}</p>
+                                <h3 className="text-2xl font-bold text-foreground mt-0.5">{stat.value}</h3>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-                <div className="rounded-xl border border-border bg-card/50 p-4 backdrop-blur-sm">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Total Calls Made</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{campaigns.reduce((s, c) => s + c.totalCalls, 0)}</p>
-                </div>
-                <div className="rounded-xl border border-border bg-card/50 p-4 backdrop-blur-sm">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Success Rate</p>
-                    <p className="text-2xl font-bold text-emerald-400 mt-1">
-                        {Math.round(
-                            (campaigns.reduce((s, c) => s + c.successful, 0) /
-                                campaigns.reduce((s, c) => s + c.totalCalls, 0)) * 100
-                        )}%
-                    </p>
-                </div>
-                <div className="rounded-xl border border-border bg-card/50 p-4 backdrop-blur-sm">
-                    <p className="text-xs text-muted font-medium uppercase tracking-wider">Active Now</p>
-                    <p className="text-2xl font-bold text-amber-400 mt-1">{campaigns.filter((c) => c.status === 'In Progress').length}</p>
-                </div>
-            </div>
+            </FadeIn>
 
-            {/* Campaign History Table */}
-            <DataTable<Campaign>
-                data={campaigns}
-                columns={columns}
-                searchPlaceholder="Search campaigns..."
-                searchKeys={['name', 'type']}
-                filterKey="status"
-                filterOptions={['Completed', 'In Progress', 'Scheduled', 'Failed']}
-                pageSize={10}
-            />
+            <FadeIn delay={0.2}>
+                <DataTable<Campaign>
+                    data={campaigns}
+                    columns={columns}
+                    searchPlaceholder="Search campaigns..."
+                    searchKeys={['name', 'type']}
+                    filterKey="status"
+                    filterOptions={['Completed', 'In Progress', 'Scheduled', 'Failed']}
+                    pageSize={10}
+                />
+            </FadeIn>
 
             {/* New Campaign Modal */}
             <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Start New Campaign">
-                <div className="space-y-4">
+                <div className="space-y-5">
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">Campaign Name</label>
+                        <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Campaign Name</label>
                         <input
                             type="text"
-                            placeholder="e.g. Morning Confirmations"
-                            className="w-full px-3 py-2 bg-background rounded-lg border border-border text-sm text-foreground placeholder:text-muted outline-none focus:border-primary"
+                            placeholder="e.g., Summer Promo Recall"
+                            className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 focus:bg-white/10 transition-all placeholder:text-muted-foreground/40"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">Campaign Type</label>
-                        <select className="w-full px-3 py-2 bg-background rounded-lg border border-border text-sm text-foreground outline-none focus:border-primary cursor-pointer">
-                            <option>Confirmation</option>
-                            <option>Reminder</option>
-                            <option>Follow-up</option>
-                            <option>Rescheduling</option>
-                        </select>
+                        <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Campaign Type</label>
+                        <div className="relative">
+                            <select className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer transition-all appearance-none">
+                                <option>Appointment Reminder</option>
+                                <option>Recall / Reactivation</option>
+                                <option>Feedback Request</option>
+                                <option>Custom Promo</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                        </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">Target Bookings</label>
-                        <select className="w-full px-3 py-2 bg-background rounded-lg border border-border text-sm text-foreground outline-none focus:border-primary cursor-pointer">
-                            <option>All Pending Bookings (5)</option>
-                            <option>Today&apos;s Bookings (18)</option>
-                            <option>Tomorrow&apos;s Bookings (12)</option>
-                            <option>Custom Selection</option>
-                        </select>
+                        <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Target Audience (CSV)</label>
+                        <div className="w-full border border-dashed border-white/20 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-white/5 cursor-pointer transition-colors group">
+                            <div className="p-3 bg-white/5 rounded-full mb-3 group-hover:scale-110 transition-transform">
+                                <svg className="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            </div>
+                            <span className="text-sm font-medium text-foreground">Click to upload CSV</span>
+                            <span className="text-xs text-muted-foreground mt-1">or drag and drop</span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-3 pt-2">
-                        <Button onClick={handleStartCampaign} disabled={campaignStarted}>
-                            {campaignStarted ? (
-                                <>
-                                    <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                    </svg>
-                                    Starting Campaign...
-                                </>
-                            ) : (
-                                <>
-                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                    Start Calling
-                                </>
-                            )}
-                        </Button>
-                        <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
+                    <div className="flex gap-3 pt-2">
+                        <Button variant="outline" className="flex-1" onClick={() => setModalOpen(false)}>Cancel</Button>
+                        <Button className="flex-1">Create Campaign</Button>
                     </div>
                 </div>
             </Modal>
-        </div>
+        </StaggerContainer>
     );
 }
