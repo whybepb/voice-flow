@@ -1,15 +1,78 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StatCard from '@/components/StatCard';
 import Chart from '@/components/Chart';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { Calendar, Users, PhoneCall, TrendingUp, Clock, AlertCircle } from 'lucide-react';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
-import { bookings, stats } from '@/lib/data';
+import { api } from '@/lib/api';
+import { Booking, DashboardStats } from '@/lib/data';
 
 export default function DashboardPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    appointmentsToday: 0,
+    confirmedCount: 0,
+    pendingCount: 0,
+    rescheduledCount: 0,
+    failedCalls: 0,
+    totalCustomers: 0,
+    confirmationRate: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [bookingsRes, customersRes] = await Promise.all([
+          api.get('/bookings'),
+          api.get('/customers')
+        ]);
+
+        const fetchedBookings = bookingsRes.data.bookings.map((b: any) => ({
+          id: b.id,
+          name: b.customer?.name || 'Unknown',
+          phone: b.customer?.phone || 'N/A',
+          email: b.customer?.email || 'N/A',
+          appointmentTime: new Date(b.appointmentTime).toLocaleString(),
+          status: b.status,
+          callStatus: b.lastCallStatus || 'Pending',
+          service: 'General Consultation', // Placeholder
+        }));
+
+        setBookings(fetchedBookings);
+
+        // Calculate stats
+        const confirmed = fetchedBookings.filter((b: any) => b.status === 'CONFIRMED').length;
+        const pending = fetchedBookings.filter((b: any) => b.status === 'PENDING').length;
+        const rescheduled = fetchedBookings.filter((b: any) => b.status === 'RESCHEDULED').length;
+        const failed = fetchedBookings.filter((b: any) => b.lastCallStatus === 'Failed').length;
+        const totalCustomers = customersRes.results;
+        const today = new Date().toDateString();
+        const todayAppointments = fetchedBookings.filter((b: any) => new Date(b.appointmentTime).toDateString() === today).length;
+
+        setStats({
+          appointmentsToday: todayAppointments,
+          confirmedCount: confirmed,
+          pendingCount: pending,
+          rescheduledCount: rescheduled,
+          failedCalls: failed,
+          totalCustomers: totalCustomers,
+          confirmationRate: fetchedBookings.length > 0 ? (confirmed / fetchedBookings.length) * 100 : 0,
+        });
+
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   const chartData = [
     { month: 'Sep', value: 78 },
     { month: 'Oct', value: 82 },
@@ -27,6 +90,10 @@ export default function DashboardPage() {
     { header: 'Call Status', accessor: 'callStatus', render: (row: any) => <StatusBadge status={row.callStatus} /> },
   ];
 
+  if (loading) {
+    return <div className="text-white">Loading...</div>; // Simple loading state
+  }
+
   return (
     <StaggerContainer className="space-y-8">
       {/* Header */}
@@ -42,7 +109,7 @@ export default function DashboardPage() {
             title="Total Bookings Today"
             value={stats.appointmentsToday}
             trend="up"
-            trendValue="12% from last week"
+            trendValue="Calculated from real data"
             icon={Calendar}
             color="primary"
           />
@@ -50,7 +117,7 @@ export default function DashboardPage() {
             title="Confirmed"
             value={stats.confirmedCount}
             trend="up"
-            trendValue="8% from last week"
+            trendValue="Real-time"
             icon={TrendingUp}
             color="emerald"
           />
@@ -58,7 +125,7 @@ export default function DashboardPage() {
             title="Pending Confirmations"
             value={stats.pendingCount}
             trend="neutral"
-            trendValue="3% from last week"
+            trendValue="Real-time"
             icon={Clock}
             color="amber"
           />
@@ -66,7 +133,7 @@ export default function DashboardPage() {
             title="Rescheduled"
             value={stats.rescheduledCount}
             trend="up"
-            trendValue="2% from last week"
+            trendValue="Real-time"
             icon={Clock}
             color="violet"
           />
@@ -74,7 +141,7 @@ export default function DashboardPage() {
             title="Failed Calls"
             value={stats.failedCalls}
             trend="down"
-            trendValue="5% from last week"
+            trendValue="Real-time"
             icon={AlertCircle}
             color="rose"
           />
@@ -82,7 +149,7 @@ export default function DashboardPage() {
             title="Total Customers"
             value={stats.totalCustomers}
             trend="up"
-            trendValue="6% from last week"
+            trendValue="Real-time"
             icon={Users}
             color="primary"
           />
@@ -95,10 +162,10 @@ export default function DashboardPage() {
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-sm h-full flex flex-col justify-center">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-foreground">Confirmation Rate</h3>
-              <span className="text-2xl font-bold text-emerald-400">84.5%</span>
+              <span className="text-2xl font-bold text-emerald-400">{stats.confirmationRate.toFixed(1)}%</span>
             </div>
             <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-500 to-emerald-300 h-3 rounded-full" style={{ width: '84.5%' }} />
+              <div className="bg-gradient-to-r from-emerald-500 to-emerald-300 h-3 rounded-full" style={{ width: `${stats.confirmationRate}%` }} />
             </div>
             <p className="text-[11px] text-muted-foreground mt-2">Based on AI call outcomes</p>
           </div>

@@ -29,6 +29,7 @@ model Booking {
   customerId     String
   customer       Customer      @relation(fields: [customerId], references: [id])
   appointmentTime DateTime
+  service        String?       @default("General Consultation")
   status         BookingStatus @default(PENDING)
   lastCallStatus String?
   createdAt      DateTime      @default(now())

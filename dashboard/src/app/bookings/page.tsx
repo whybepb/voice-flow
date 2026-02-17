@@ -1,13 +1,42 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
-import { bookings } from '@/lib/data';
 import { Booking } from '@/lib/data';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { api } from '@/lib/api';
 
 export default function BookingsPage() {
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchBookings = async () => {
+            try {
+                const res = await api.get('/bookings');
+                const fetchedBookings = res.data.bookings.map((b: any) => ({
+                    id: b.id,
+                    name: b.customer?.name || 'Unknown',
+                    phone: b.customer?.phone || 'N/A',
+                    email: b.customer?.email || 'N/A',
+                    appointmentTime: new Date(b.appointmentTime).toLocaleString(),
+                    status: b.status,
+                    callStatus: b.lastCallStatus || 'Pending',
+                    service: 'General Consultation', // Placeholder
+                    // Adding missing fields from Booking interface if any
+                }));
+                setBookings(fetchedBookings);
+            } catch (error) {
+                console.error('Error fetching bookings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchBookings();
+    }, []);
+
     const columns = [
         {
             header: 'Name',
@@ -37,6 +66,8 @@ export default function BookingsPage() {
         { header: 'Call Status', accessor: 'callStatus', render: (row: Booking) => <StatusBadge status={row.callStatus} /> },
     ];
 
+    if (loading) return <div className="text-white">Loading...</div>;
+
     return (
         <StaggerContainer className="space-y-8">
             <FadeIn>
@@ -45,15 +76,19 @@ export default function BookingsPage() {
             </FadeIn>
 
             <FadeIn delay={0.1}>
-                <DataTable<Booking>
-                    data={bookings}
-                    columns={columns}
-                    searchPlaceholder="Search by name, phone, or email..."
-                    searchKeys={['name', 'phone', 'email']}
-                    filterKey="status"
-                    filterOptions={['Confirmed', 'Pending', 'Cancelled', 'Rescheduled']}
-                    pageSize={10}
-                />
+                {bookings.length > 0 ? (
+                    <DataTable<Booking>
+                        data={bookings}
+                        columns={columns}
+                        searchPlaceholder="Search by name, phone, or email..."
+                        searchKeys={['name', 'phone', 'email']}
+                        filterKey="status"
+                        filterOptions={['Confirmed', 'Pending', 'Cancelled', 'Rescheduled']}
+                        pageSize={10}
+                    />
+                ) : (
+                    <div className="text-white">No bookings found.</div>
+                )}
             </FadeIn>
         </StaggerContainer>
     );

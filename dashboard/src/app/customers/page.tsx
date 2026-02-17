@@ -1,13 +1,48 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
-import { customers } from '@/lib/data';
 import { Customer } from '@/lib/data';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { api } from '@/lib/api';
 
 export default function CustomersPage() {
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                const res = await api.get('/customers');
+                const fetchedCustomers = res.data.customers.map((c: any) => {
+                    const bookings = c.bookings || [];
+                    const lastBooking = bookings.length > 0
+                        ? new Date(bookings[bookings.length - 1].appointmentTime).toLocaleDateString()
+                        : 'Never';
+
+                    return {
+                        id: c.id,
+                        name: c.name,
+                        email: c.email || 'N/A',
+                        phone: c.phone,
+                        totalBookings: bookings.length,
+                        lastBooking: lastBooking,
+                        status: 'Active', // Placeholder
+                        lastContact: 'Unknown' // Placeholder
+                    };
+                });
+                setCustomers(fetchedCustomers);
+            } catch (error) {
+                console.error('Error fetching customers:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCustomers();
+    }, []);
+
     const columns = [
         {
             header: 'Customer',
@@ -34,6 +69,8 @@ export default function CustomersPage() {
         { header: 'Status', accessor: 'status', render: (row: Customer) => <StatusBadge status={row.status} /> },
     ];
 
+    if (loading) return <div className="text-white">Loading...</div>;
+
     return (
         <StaggerContainer className="space-y-8">
             <FadeIn>
@@ -42,15 +79,19 @@ export default function CustomersPage() {
             </FadeIn>
 
             <FadeIn delay={0.1}>
-                <DataTable<Customer>
-                    data={customers}
-                    columns={columns}
-                    searchPlaceholder="Search by name, email, or phone..."
-                    searchKeys={['name', 'email', 'phone']}
-                    filterKey="status"
-                    filterOptions={['Active', 'Inactive']}
-                    pageSize={10}
-                />
+                {customers.length > 0 ? (
+                    <DataTable<Customer>
+                        data={customers}
+                        columns={columns}
+                        searchPlaceholder="Search by name, email, or phone..."
+                        searchKeys={['name', 'email', 'phone']}
+                        filterKey="status"
+                        filterOptions={['Active', 'Inactive']}
+                        pageSize={10}
+                    />
+                ) : (
+                    <div className="text-white">No customers found.</div>
+                )}
             </FadeIn>
         </StaggerContainer>
     );
