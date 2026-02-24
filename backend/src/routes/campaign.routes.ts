@@ -1,8 +1,12 @@
 import { Router } from 'express';
-import { startCampaign } from '../controllers/campaign.controller';
+import { createCampaign, getCampaigns, getCampaignById, startCampaign, addBookingToCampaign } from '../controllers/campaign.controller';
 
 const router = Router();
 
-router.post('/start', startCampaign);
+router.post('/', createCampaign);
+router.get('/', getCampaigns);
+router.get('/:id', getCampaignById);
+router.post('/:id/start', startCampaign);
+router.post('/:id/bookings', addBookingToCampaign);
 
 export default router;

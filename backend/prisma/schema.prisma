@@ -28,6 +28,8 @@ model Booking {
   id             String        @id @default(uuid())
   customerId     String
   customer       Customer      @relation(fields: [customerId], references: [id])
+  campaignId     String?
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id])
   appointmentTime DateTime
   service        String?       @default("General Consultation")
   status         BookingStatus @default(PENDING)
@@ -40,10 +42,23 @@ model CallLog {
   id          String   @id @default(uuid())
   bookingId   String
   booking     Booking  @relation(fields: [bookingId], references: [id])
+  sid         String?  @unique // Twilio Call SID
   callStatus  String
   transcript  String?
   recordingUrl String?
+  duration    Int?
   createdAt   DateTime @default(now())
+}
+
+model Campaign {
+  id          String    @id @default(uuid())
+  name        String
+  type        String    // e.g., "Confirmation", "Reminder"
+  status      String    @default("DRAFT") // DRAFT, RUNNING, COMPLETED, PAUSED
+  scheduledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
 }
 
 enum Role {
@@ -57,3 +72,4 @@ enum BookingStatus {
   RESCHEDULED
   CANCELLED
 }
+

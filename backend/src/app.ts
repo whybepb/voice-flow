@@ -7,8 +7,7 @@ import authRoutes from './routes/auth.routes';
 import customerRoutes from './routes/customers.routes';
 import bookingRoutes from './routes/bookings.routes';
 import campaignRoutes from './routes/campaign.routes';
-
-import webhookRoutes from './routes/webhooks.routes';
+import webhookRoutes from './routes/webhook.routes';
 
 const app = express();
 
@@ -24,7 +23,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/auth', authRoutes);
 app.use('/customers', customerRoutes);
 app.use('/bookings', bookingRoutes);
-app.use('/campaign', campaignRoutes);
+app.use('/campaigns', campaignRoutes);
 app.use('/webhooks', webhookRoutes);
 
 // Health Check
