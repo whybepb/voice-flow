@@ -8,6 +8,7 @@ import customerRoutes from './routes/customers.routes';
 import bookingRoutes from './routes/bookings.routes';
 import campaignRoutes from './routes/campaign.routes';
 import webhookRoutes from './routes/webhook.routes';
+import voiceRoutes from './routes/voice.routes';
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/customers', customerRoutes);
 app.use('/bookings', bookingRoutes);
 app.use('/campaigns', campaignRoutes);
 app.use('/webhooks', webhookRoutes);
+app.use('/voice', voiceRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

@@ -66,14 +66,14 @@ export const CampaignService = {
 
                 try {
                     // Call Twilio
-                    // Replace with your TwiML Bin URL or handling logic
-                    const twimlUrl = 'http://demo.twilio.com/docs/voice.xml';
-                    // In production, this URL should point to your /webhooks/twilio/voice endpoint
+                    // The TwiML URL tells Twilio to connect the call to our WebSocket media stream
+                    const baseUrl = process.env.BASE_URL || 'http://localhost:5001';
+                    const twimlUrl = `${baseUrl}/voice/outbound`;
 
                     const call = await TwilioService.makeCall(
                         booking.customer.phone,
                         process.env.TWILIO_PHONE_NUMBER as string,
-                        twimlUrl // For now use a demo URL or a valid TwiML URL
+                        twimlUrl
                     );
 
                     // Update Booking Status
