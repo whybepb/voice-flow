@@ -13,7 +13,8 @@ import {
     Settings,
     LogOut,
     Mic,
-    X
+    X,
+    FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +23,7 @@ const navigation = [
     { name: 'Bookings', href: '/bookings', icon: CalendarDays },
     { name: 'Customers', href: '/customers', icon: Users },
     { name: 'Call Campaigns', href: '/campaigns', icon: PhoneCall },
+    { name: 'Call Logs', href: '/call-logs', icon: FileText },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];

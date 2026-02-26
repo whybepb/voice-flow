@@ -9,6 +9,7 @@ import bookingRoutes from './routes/bookings.routes';
 import campaignRoutes from './routes/campaign.routes';
 import webhookRoutes from './routes/webhook.routes';
 import voiceRoutes from './routes/voice.routes';
+import calllogRoutes from './routes/calllogs.routes';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/bookings', bookingRoutes);
 app.use('/campaigns', campaignRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/voice', voiceRoutes);
+app.use('/call-logs', calllogRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

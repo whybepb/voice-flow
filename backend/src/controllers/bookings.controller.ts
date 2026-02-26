@@ -33,6 +33,10 @@ export const getBookings = async (req: Request, res: Response, next: NextFunctio
         const bookings = await prisma.booking.findMany({
             include: {
                 customer: true,
+                callLogs: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                },
             },
             orderBy: {
                 appointmentTime: 'asc',
