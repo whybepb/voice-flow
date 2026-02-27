@@ -10,6 +10,7 @@ import campaignRoutes from './routes/campaign.routes';
 import webhookRoutes from './routes/webhook.routes';
 import voiceRoutes from './routes/voice.routes';
 import calllogRoutes from './routes/calllogs.routes';
+import analyticsRoutes from './routes/analytics.routes';
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/campaigns', campaignRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/voice', voiceRoutes);
 app.use('/call-logs', calllogRoutes);
+app.use('/analytics', analyticsRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

@@ -22,14 +22,17 @@ export default function DashboardPage() {
     totalCustomers: 0,
     confirmationRate: 0,
   });
+  const [chartData, setChartData] = useState<{ month: string; value: number }[]>([]);
+  const [campaignSummary, setCampaignSummary] = useState({ active: 0, scheduled: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingsRes, customersRes] = await Promise.all([
+        const [bookingsRes, customersRes, analyticsRes] = await Promise.all([
           api.get('/bookings'),
-          api.get('/customers')
+          api.get('/customers'),
+          api.get('/analytics/dashboard'),
         ]);
 
         const fetchedBookings = bookingsRes.data.bookings.map((b: any) => ({
@@ -40,7 +43,7 @@ export default function DashboardPage() {
           appointmentTime: new Date(b.appointmentTime).toLocaleString(),
           status: b.status,
           callStatus: b.lastCallStatus || 'Pending',
-          service: 'General Consultation', // Placeholder
+          service: b.service || 'General Consultation',
         }));
 
         setBookings(fetchedBookings);
@@ -49,7 +52,7 @@ export default function DashboardPage() {
         const confirmed = fetchedBookings.filter((b: any) => b.status === 'CONFIRMED').length;
         const pending = fetchedBookings.filter((b: any) => b.status === 'PENDING').length;
         const rescheduled = fetchedBookings.filter((b: any) => b.status === 'RESCHEDULED').length;
-        const failed = fetchedBookings.filter((b: any) => b.lastCallStatus === 'Failed').length;
+        const failed = fetchedBookings.filter((b: any) => b.callStatus?.toLowerCase() === 'failed').length;
         const totalCustomers = customersRes.results;
         const today = new Date().toDateString();
         const todayAppointments = fetchedBookings.filter((b: any) => new Date(b.appointmentTime).toDateString() === today).length;
@@ -64,6 +67,19 @@ export default function DashboardPage() {
           confirmationRate: fetchedBookings.length > 0 ? (confirmed / fetchedBookings.length) * 100 : 0,
         });
 
+        // Use real chart data from analytics API
+        if (analyticsRes.monthly?.callVolume) {
+          setChartData(analyticsRes.monthly.callVolume);
+        }
+
+        // Use real campaign summary
+        if (analyticsRes.campaignSummary) {
+          setCampaignSummary({
+            active: analyticsRes.campaignSummary.active || 0,
+            scheduled: analyticsRes.campaignSummary.scheduled || 0,
+          });
+        }
+
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -73,15 +89,6 @@ export default function DashboardPage() {
 
     fetchData();
   }, []);
-
-  const chartData = [
-    { month: 'Sep', value: 78 },
-    { month: 'Oct', value: 82 },
-    { month: 'Nov', value: 79 },
-    { month: 'Dec', value: 85 },
-    { month: 'Jan', value: 89 },
-    { month: 'Feb', value: 84 },
-  ];
 
   const columns = [
     { header: 'Name', accessor: 'name' },
@@ -178,11 +185,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-xs text-muted-foreground">Running right now</span>
-                <p className="text-2xl font-bold text-foreground mt-1">3</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{campaignSummary.active + campaignSummary.scheduled}</p>
               </div>
               <div className="flex gap-1">
-                <span className="px-2 py-1 rounded-md bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/20">2 scheduled</span>
-                <span className="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">1 in progress</span>
+                <span className="px-2 py-1 rounded-md bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/20">{campaignSummary.scheduled} scheduled</span>
+                <span className="px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">{campaignSummary.active} in progress</span>
               </div>
             </div>
           </div>

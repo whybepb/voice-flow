@@ -1,17 +1,58 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Chart from '@/components/Chart';
-import { analytics } from '@/lib/data';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 import { CheckCircle2, XCircle, RefreshCw, PhoneForwarded } from 'lucide-react';
+import { api } from '@/lib/api';
+
+interface MonthlyPoint {
+    month: string;
+    value: number;
+}
+
+interface AnalyticsResponse {
+    rates: {
+        confirmationRate: number;
+        cancellationRate: number;
+        rescheduleRate: number;
+        callSuccessRate: number;
+    };
+    monthly: {
+        confirmationRate: MonthlyPoint[];
+        cancellationRate: MonthlyPoint[];
+        rescheduleRate: MonthlyPoint[];
+        callSuccessRate: MonthlyPoint[];
+    };
+}
 
 export default function AnalyticsPage() {
+    const [data, setData] = useState<AnalyticsResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAnalytics = async () => {
+            try {
+                const res = await api.get('/analytics/dashboard');
+                setData(res);
+            } catch (error) {
+                console.error('Error fetching analytics:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAnalytics();
+    }, []);
+
+    if (loading || !data) return <PageSkeleton />;
+
     const metrics = [
-        { title: 'Confirmation Rate', value: '84%', sub: '↑ 2% this month', color: 'emerald', icon: CheckCircle2 },
-        { title: 'Cancellation Rate', value: '9%', sub: '↓ 1% this month', color: 'rose', icon: XCircle },
-        { title: 'Reschedule Rate', value: '6%', sub: '↑ 1% this month', color: 'blue', icon: RefreshCw },
-        { title: 'Call Success Rate', value: '87%', sub: '↑ 3% this month', color: 'violet', icon: PhoneForwarded },
+        { title: 'Confirmation Rate', value: `${data.rates.confirmationRate}%`, sub: 'Based on total bookings', color: 'emerald', icon: CheckCircle2 },
+        { title: 'Cancellation Rate', value: `${data.rates.cancellationRate}%`, sub: 'Based on total bookings', color: 'rose', icon: XCircle },
+        { title: 'Reschedule Rate', value: `${data.rates.rescheduleRate}%`, sub: 'Based on total bookings', color: 'blue', icon: RefreshCw },
+        { title: 'Call Success Rate', value: `${data.rates.callSuccessRate}%`, sub: 'Based on completed calls', color: 'violet', icon: PhoneForwarded },
     ];
 
     return (
@@ -42,7 +83,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <FadeIn delay={0.2}>
                     <Chart
-                        data={analytics.confirmationRate}
+                        data={data.monthly.confirmationRate}
                         dataKey="value"
                         title="Confirmation Rate"
                         subtitle="Percentage of bookings confirmed via AI calls"
@@ -52,7 +93,7 @@ export default function AnalyticsPage() {
                 </FadeIn>
                 <FadeIn delay={0.3}>
                     <Chart
-                        data={analytics.cancellationRate}
+                        data={data.monthly.cancellationRate}
                         dataKey="value"
                         title="Cancellation Rate"
                         subtitle="Percentage of bookings cancelled"
@@ -62,7 +103,7 @@ export default function AnalyticsPage() {
                 </FadeIn>
                 <FadeIn delay={0.4}>
                     <Chart
-                        data={analytics.rescheduleRate}
+                        data={data.monthly.rescheduleRate}
                         dataKey="value"
                         title="Reschedule Rate"
                         subtitle="Percentage of bookings rescheduled"
@@ -72,7 +113,7 @@ export default function AnalyticsPage() {
                 </FadeIn>
                 <FadeIn delay={0.5}>
                     <Chart
-                        data={analytics.callSuccessRate}
+                        data={data.monthly.callSuccessRate}
                         dataKey="value"
                         title="Call Success Rate"
                         subtitle="Percentage of calls that connected successfully"

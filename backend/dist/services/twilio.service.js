@@ -1,13 +1,15 @@
-export { };
-
-import twilio from 'twilio';
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TwilioService = void 0;
+const twilio_1 = __importDefault(require("twilio"));
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const client = twilio(accountSid, authToken);
-
-export const TwilioService = {
-    makeCall: async (to: string, from: string, url: string, statusCallbackUrl?: string) => {
+const client = (0, twilio_1.default)(accountSid, authToken);
+exports.TwilioService = {
+    makeCall: async (to, from, url, statusCallbackUrl) => {
         try {
             const call = await client.calls.create({
                 url,
@@ -20,13 +22,13 @@ export const TwilioService = {
                 }),
             });
             return call;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error making call:', error);
             throw error;
         }
     },
-
-    sendSMS: async (to: string, from: string, body: string) => {
+    sendSMS: async (to, from, body) => {
         try {
             const message = await client.messages.create({
                 body,
@@ -34,7 +36,8 @@ export const TwilioService = {
                 to,
             });
             return message;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error sending SMS:', error);
             throw error;
         }

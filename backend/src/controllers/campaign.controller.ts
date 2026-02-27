@@ -4,8 +4,8 @@ import prisma from '../prisma';
 
 export const createCampaign = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { name, type, scheduledAt } = req.body;
-        const campaign = await CampaignService.createCampaign(name, type, scheduledAt);
+        const { name, type, scheduledAt, phoneNumbers } = req.body;
+        const campaign = await CampaignService.createCampaign(name, type, scheduledAt, phoneNumbers);
         res.status(201).json({ message: 'Campaign created', campaign });
     } catch (error) {
         next(error);

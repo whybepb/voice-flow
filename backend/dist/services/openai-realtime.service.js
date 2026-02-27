@@ -1,15 +1,18 @@
-import WebSocket from 'ws';
-import prisma from '../prisma';
-
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.handleMediaStream = handleMediaStream;
+const ws_1 = __importDefault(require("ws"));
+const prisma_1 = __importDefault(require("../prisma"));
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
-
 // Validate API key at module load
 if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key') {
     console.warn('[OpenAI] ⚠️  OPENAI_API_KEY is not set or is a placeholder. AI voice calls will not work.');
 }
-
 // System prompt that defines the AI agent's personality and capabilities
 const SYSTEM_MESSAGE = `You are a friendly, professional AI voice assistant for a business. Your job is to help callers with:
 - Checking their booking/appointment status
@@ -21,14 +24,12 @@ Guidelines:
 - Confirm actions before executing them (e.g., "I'll reschedule your appointment to next Tuesday at 3 PM. Does that work?").
 - If you don't have enough info (e.g., customer name or phone), ask for it politely.
 - If you can't help, offer to transfer to a human agent.`;
-
 // Voice setting for the AI
 const VOICE = 'alloy';
-
 // Tool definitions for function calling — the AI can invoke these mid-conversation
 const TOOLS = [
     {
-        type: 'function' as const,
+        type: 'function',
         name: 'check_booking_status',
         description: 'Look up a customer\'s booking by their phone number. Returns booking details including date, service, and status.',
         parameters: {
@@ -43,7 +44,7 @@ const TOOLS = [
         },
     },
     {
-        type: 'function' as const,
+        type: 'function',
         name: 'reschedule_booking',
         description: 'Reschedule a booking to a new date and time.',
         parameters: {
@@ -62,7 +63,7 @@ const TOOLS = [
         },
     },
     {
-        type: 'function' as const,
+        type: 'function',
         name: 'cancel_booking',
         description: 'Cancel a booking.',
         parameters: {
@@ -77,15 +78,12 @@ const TOOLS = [
         },
     },
 ];
-
 // ─── Tool Execution ────────────────────────────────────────────────
-
-async function executeToolCall(toolName: string, args: Record<string, any>): Promise<string> {
+async function executeToolCall(toolName, args) {
     console.log(`[Tool Call] ${toolName}`, args);
-
     switch (toolName) {
         case 'check_booking_status': {
-            const customer = await prisma.customer.findFirst({
+            const customer = await prisma_1.default.customer.findFirst({
                 where: { phone: args.phone },
                 include: {
                     bookings: {
@@ -94,11 +92,9 @@ async function executeToolCall(toolName: string, args: Record<string, any>): Pro
                     },
                 },
             });
-
             if (!customer) {
                 return JSON.stringify({ found: false, message: 'No customer found with that phone number.' });
             }
-
             return JSON.stringify({
                 found: true,
                 customer_name: customer.name,
@@ -110,10 +106,9 @@ async function executeToolCall(toolName: string, args: Record<string, any>): Pro
                 })),
             });
         }
-
         case 'reschedule_booking': {
             try {
-                const updated = await prisma.booking.update({
+                const updated = await prisma_1.default.booking.update({
                     where: { id: args.booking_id },
                     data: {
                         appointmentTime: new Date(args.new_date_time),
@@ -121,127 +116,110 @@ async function executeToolCall(toolName: string, args: Record<string, any>): Pro
                     },
                 });
                 return JSON.stringify({ success: true, new_time: updated.appointmentTime.toISOString() });
-            } catch (e) {
+            }
+            catch (e) {
                 return JSON.stringify({ success: false, error: 'Booking not found or update failed.' });
             }
         }
-
         case 'cancel_booking': {
             try {
-                await prisma.booking.update({
+                await prisma_1.default.booking.update({
                     where: { id: args.booking_id },
                     data: { status: 'CANCELLED' },
                 });
                 return JSON.stringify({ success: true });
-            } catch (e) {
+            }
+            catch (e) {
                 return JSON.stringify({ success: false, error: 'Booking not found or cancellation failed.' });
             }
         }
-
         default:
             return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
 }
-
 // ─── OpenAI Realtime Session Handler ───────────────────────────────
-
-function connectToOpenAI(retryCount = 0): WebSocket | null {
+function connectToOpenAI(retryCount = 0) {
     if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key') {
         console.error('[OpenAI] Cannot connect: OPENAI_API_KEY is not configured');
         return null;
     }
-
     try {
-        return new WebSocket(
-            'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
-            {
-                headers: {
-                    Authorization: `Bearer ${OPENAI_API_KEY}`,
-                    'OpenAI-Beta': 'realtime=v1',
-                },
-            }
-        );
-    } catch (error) {
+        return new ws_1.default('wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17', {
+            headers: {
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+                'OpenAI-Beta': 'realtime=v1',
+            },
+        });
+    }
+    catch (error) {
         console.error(`[OpenAI] Connection attempt ${retryCount + 1} failed:`, error);
         return null;
     }
 }
-
-export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
+function handleMediaStream(twilioWs, callSid) {
     console.log(`[MediaStream] New connection established${callSid ? ` for call ${callSid}` : ''}`);
-
     // Connect to OpenAI Realtime API
     const maybeWs = connectToOpenAI();
-
     if (!maybeWs) {
         console.error('[MediaStream] Failed to connect to OpenAI. Closing Twilio stream.');
         twilioWs.close();
         return;
     }
-
     // After the null guard, we know this is a valid WebSocket
-    const openaiWs: WebSocket = maybeWs;
-
-    let streamSid: string | null = null;
-    let callMetadata: { from?: string; to?: string } = {};
-    const transcriptParts: string[] = [];
+    const openaiWs = maybeWs;
+    let streamSid = null;
+    let callMetadata = {};
+    const transcriptParts = [];
     let isCleanedUp = false;
-
     // Promise that resolves once the OpenAI WebSocket is fully open and the
     // session has been configured.  Twilio messages are held until this fires
     // so we never try to send on a CONNECTING socket.
-    let resolveOpenAI: () => void;
-    const openaiReady = new Promise<void>((resolve) => {
+    let resolveOpenAI;
+    const openaiReady = new Promise((resolve) => {
         resolveOpenAI = resolve;
     });
-
     // Graceful cleanup to prevent double-close
     function cleanup() {
-        if (isCleanedUp) return;
+        if (isCleanedUp)
+            return;
         isCleanedUp = true;
-        if (openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+        if (openaiWs.readyState === ws_1.default.OPEN)
+            openaiWs.close();
         saveTranscript(callSid, transcriptParts.join('\n'));
     }
-
     // Helper: only send if the OpenAI socket is still open
-    function safeSend(payload: string) {
-        if (openaiWs.readyState === WebSocket.OPEN) {
+    function safeSend(payload) {
+        if (openaiWs.readyState === ws_1.default.OPEN) {
             openaiWs.send(payload);
         }
     }
-
     // ── OpenAI WebSocket Events ──────────────────────────────────
-
     openaiWs.on('open', () => {
         console.log('[OpenAI] Connected to Realtime API');
-
         // Configure the session
         const sessionUpdate = {
             type: 'session.update',
             session: {
                 turn_detection: { type: 'server_vad' }, // Let OpenAI detect when user stops talking
-                input_audio_format: 'g711_ulaw',        // Twilio sends µ-law audio
-                output_audio_format: 'g711_ulaw',       // Send µ-law back to Twilio
+                input_audio_format: 'g711_ulaw', // Twilio sends µ-law audio
+                output_audio_format: 'g711_ulaw', // Send µ-law back to Twilio
                 voice: VOICE,
                 instructions: SYSTEM_MESSAGE,
                 modalities: ['text', 'audio'],
                 temperature: 0.8,
                 tools: TOOLS,
-                input_audio_transcription: {             // Enable caller transcription
+                input_audio_transcription: {
                     model: 'whisper-1',
                 },
             },
         };
         openaiWs.send(JSON.stringify(sessionUpdate));
-
         // Signal that we're ready to accept Twilio messages
         resolveOpenAI();
     });
-
-    openaiWs.on('message', (data: WebSocket.Data) => {
+    openaiWs.on('message', (data) => {
         try {
             const event = JSON.parse(data.toString());
-
             switch (event.type) {
                 // AI is sending audio back — forward it to Twilio
                 case 'response.audio.delta':
@@ -254,7 +232,6 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                         twilioWs.send(JSON.stringify(audioDelta));
                     }
                     break;
-
                 // AI has finished a full response turn
                 case 'response.done':
                     if (event.response?.output) {
@@ -270,23 +247,21 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                         }
                     }
                     break;
-
                 // User finished speaking — capture their transcript
                 case 'conversation.item.input_audio_transcription.completed':
                     if (event.transcript) {
                         transcriptParts.push(`Caller: ${event.transcript}`);
                     }
                     break;
-
                 // AI wants to call a tool
                 case 'response.function_call_arguments.done': {
                     const toolName = event.name;
                     const toolCallId = event.call_id;
-                    let toolArgs: Record<string, any> = {};
+                    let toolArgs = {};
                     try {
                         toolArgs = JSON.parse(event.arguments);
-                    } catch { }
-
+                    }
+                    catch { }
                     // Execute the tool and send result back to OpenAI
                     executeToolCall(toolName, toolArgs).then((result) => {
                         // Send the tool output back so the AI can respond
@@ -299,17 +274,14 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                             },
                         };
                         openaiWs.send(JSON.stringify(toolResponse));
-
                         // Tell OpenAI to generate a response using the tool result
                         openaiWs.send(JSON.stringify({ type: 'response.create' }));
                     });
                     break;
                 }
-
                 case 'error':
                     console.error('[OpenAI] Error:', event.error);
                     break;
-
                 default:
                     // Log other events at debug level
                     if (process.env.NODE_ENV === 'development') {
@@ -317,47 +289,40 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                     }
                     break;
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error('[OpenAI] Error parsing message:', error);
         }
     });
-
     openaiWs.on('close', () => {
         console.log('[OpenAI] Connection closed');
     });
-
     openaiWs.on('error', (error) => {
         console.error('[OpenAI] WebSocket error:', error);
     });
-
     // ── Twilio WebSocket Events ──────────────────────────────────
-
-    twilioWs.on('message', (message: WebSocket.Data) => {
+    twilioWs.on('message', (message) => {
         try {
             const data = JSON.parse(message.toString());
-
             switch (data.event) {
                 case 'connected':
                     console.log('[Twilio] Media stream connected');
                     break;
-
                 case 'start':
                     streamSid = data.start.streamSid;
                     callMetadata = {
                         from: data.start.customParameters?.from,
                         to: data.start.customParameters?.to,
                     };
-
                     // Capture callSid if it wasn't passed in the URL
                     if (!callSid && data.start.customParameters?.callSid) {
                         callSid = data.start.customParameters.callSid;
                     }
-
                     console.log(`[Twilio] Stream started: ${streamSid}${callSid ? ` (Call SID: ${callSid})` : ''}`);
-
                     // Wait for OpenAI to be fully connected before sending the greeting
                     openaiReady.then(() => {
-                        if (isCleanedUp) return; // call may have ended while we waited
+                        if (isCleanedUp)
+                            return; // call may have ended while we waited
                         const initialEvent = {
                             type: 'conversation.item.create',
                             item: {
@@ -375,10 +340,9 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                         safeSend(JSON.stringify({ type: 'response.create' }));
                     });
                     break;
-
                 case 'media':
                     // Forward audio from Twilio → OpenAI (only after connection is ready)
-                    if (openaiWs.readyState === WebSocket.OPEN) {
+                    if (openaiWs.readyState === ws_1.default.OPEN) {
                         const audioAppend = {
                             type: 'input_audio_buffer.append',
                             audio: data.media.payload, // base64 µ-law audio
@@ -386,51 +350,47 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                         openaiWs.send(JSON.stringify(audioAppend));
                     }
                     break;
-
                 case 'stop':
                     console.log('[Twilio] Media stream stopped');
                     cleanup();
                     break;
-
                 default:
                     break;
             }
-        } catch (error) {
+        }
+        catch (error) {
             console.error('[Twilio] Error parsing message:', error);
         }
     });
-
     twilioWs.on('close', () => {
         console.log('[MediaStream] Twilio connection closed');
         cleanup();
     });
-
     twilioWs.on('error', (error) => {
         console.error('[MediaStream] Twilio WebSocket error:', error);
         cleanup();
     });
 }
-
 // ─── Persist Transcript ────────────────────────────────────────────
-
-async function saveTranscript(callSid: string | undefined, transcript: string) {
-    if (!callSid || !transcript) return;
-
+async function saveTranscript(callSid, transcript) {
+    if (!callSid || !transcript)
+        return;
     try {
-        const callLog = await prisma.callLog.findUnique({
+        const callLog = await prisma_1.default.callLog.findUnique({
             where: { sid: callSid },
         });
-
         if (callLog) {
-            await prisma.callLog.update({
+            await prisma_1.default.callLog.update({
                 where: { sid: callSid },
                 data: { transcript },
             });
             console.log(`[Transcript] Saved for call ${callSid}`);
-        } else {
+        }
+        else {
             console.warn(`[Transcript] No CallLog found for SID ${callSid}`);
         }
-    } catch (error) {
+    }
+    catch (error) {
         console.error('[Transcript] Error saving:', error);
     }
 }

@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const campaign_controller_1 = require("../controllers/campaign.controller");
+const router = (0, express_1.Router)();
+router.post('/', campaign_controller_1.createCampaign);
+router.get('/', campaign_controller_1.getCampaigns);
+router.get('/:id', campaign_controller_1.getCampaignById);
+router.post('/:id/start', campaign_controller_1.startCampaign);
+router.post('/:id/bookings', campaign_controller_1.addBookingToCampaign);
+exports.default = router;
