@@ -2,6 +2,13 @@ import WebSocket from 'ws';
 import prisma from '../prisma';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 1000;
+
+// Validate API key at module load
+if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key') {
+    console.warn('[OpenAI] ⚠️  OPENAI_API_KEY is not set or is a placeholder. AI voice calls will not work.');
+}
 
 // System prompt that defines the AI agent's personality and capabilities
 const SYSTEM_MESSAGE = `You are a friendly, professional AI voice assistant for a business. Your job is to help callers with:
@@ -138,23 +145,55 @@ async function executeToolCall(toolName: string, args: Record<string, any>): Pro
 
 // ─── OpenAI Realtime Session Handler ───────────────────────────────
 
+function connectToOpenAI(retryCount = 0): WebSocket | null {
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key') {
+        console.error('[OpenAI] Cannot connect: OPENAI_API_KEY is not configured');
+        return null;
+    }
+
+    try {
+        return new WebSocket(
+            'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+            {
+                headers: {
+                    Authorization: `Bearer ${OPENAI_API_KEY}`,
+                    'OpenAI-Beta': 'realtime=v1',
+                },
+            }
+        );
+    } catch (error) {
+        console.error(`[OpenAI] Connection attempt ${retryCount + 1} failed:`, error);
+        return null;
+    }
+}
+
 export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
     console.log(`[MediaStream] New connection established${callSid ? ` for call ${callSid}` : ''}`);
 
     // Connect to OpenAI Realtime API
-    const openaiWs = new WebSocket(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
-        {
-            headers: {
-                Authorization: `Bearer ${OPENAI_API_KEY}`,
-                'OpenAI-Beta': 'realtime=v1',
-            },
-        }
-    );
+    const maybeWs = connectToOpenAI();
+
+    if (!maybeWs) {
+        console.error('[MediaStream] Failed to connect to OpenAI. Closing Twilio stream.');
+        twilioWs.close();
+        return;
+    }
+
+    // After the null guard, we know this is a valid WebSocket
+    const openaiWs: WebSocket = maybeWs;
 
     let streamSid: string | null = null;
     let callMetadata: { from?: string; to?: string } = {};
     const transcriptParts: string[] = [];
+    let isCleanedUp = false;
+
+    // Graceful cleanup to prevent double-close
+    function cleanup() {
+        if (isCleanedUp) return;
+        isCleanedUp = true;
+        if (openaiWs.readyState === WebSocket.OPEN) openaiWs.close();
+        saveTranscript(callSid, transcriptParts.join('\n'));
+    }
 
     // ── OpenAI WebSocket Events ──────────────────────────────────
 
@@ -173,6 +212,9 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                 modalities: ['text', 'audio'],
                 temperature: 0.8,
                 tools: TOOLS,
+                input_audio_transcription: {             // Enable caller transcription
+                    model: 'whisper-1',
+                },
             },
         };
         openaiWs.send(JSON.stringify(sessionUpdate));
@@ -320,9 +362,7 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
 
                 case 'stop':
                     console.log('[Twilio] Media stream stopped');
-                    // Save transcript to database
-                    saveTranscript(callSid, transcriptParts.join('\n'));
-                    openaiWs.close();
+                    cleanup();
                     break;
 
                 default:
@@ -335,12 +375,12 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
 
     twilioWs.on('close', () => {
         console.log('[MediaStream] Twilio connection closed');
-        openaiWs.close();
+        cleanup();
     });
 
     twilioWs.on('error', (error) => {
         console.error('[MediaStream] Twilio WebSocket error:', error);
-        openaiWs.close();
+        cleanup();
     });
 }
 

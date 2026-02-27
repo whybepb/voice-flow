@@ -5,6 +5,7 @@ import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import TranscriptViewer from '@/components/TranscriptViewer';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { Phone, Clock, FileText, Bot, PhoneOff, PhoneIncoming } from 'lucide-react';
 
@@ -118,8 +119,8 @@ export default function CallLogsPage() {
                 <button
                     onClick={() => openTranscript(row._raw)}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${row.hasTranscript
-                            ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 hover:scale-105'
-                            : 'bg-white/5 text-muted-foreground border border-white/5 cursor-default'
+                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 hover:scale-105'
+                        : 'bg-white/5 text-muted-foreground border border-white/5 cursor-default'
                         }`}
                     disabled={!row.hasTranscript}
                 >
@@ -130,7 +131,7 @@ export default function CallLogsPage() {
         },
     ];
 
-    if (loading) return <div className="text-white">Loading...</div>;
+    if (loading) return <PageSkeleton />;
 
     return (
         <StaggerContainer className="space-y-8">

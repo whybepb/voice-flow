@@ -5,6 +5,7 @@ import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { Customer } from '@/lib/data';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 
 export default function CustomersPage() {
@@ -69,7 +70,7 @@ export default function CustomersPage() {
         { header: 'Status', accessor: 'status', render: (row: Customer) => <StatusBadge status={row.status} /> },
     ];
 
-    if (loading) return <div className="text-white">Loading...</div>;
+    if (loading) return <PageSkeleton />;
 
     return (
         <StaggerContainer className="space-y-8">

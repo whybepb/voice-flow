@@ -7,6 +7,7 @@ import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
 import { Calendar, Users, PhoneCall, TrendingUp, Clock, AlertCircle } from 'lucide-react';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { Booking, DashboardStats } from '@/lib/data';
 
@@ -91,7 +92,7 @@ export default function DashboardPage() {
   ];
 
   if (loading) {
-    return <div className="text-white">Loading...</div>; // Simple loading state
+    return <PageSkeleton />; // Animated skeleton loading state
   }
 
   return (
