@@ -4,13 +4,14 @@ import { TwilioService } from './twilio.service';
 import QueueService from './queue.service';
 
 export const CampaignService = {
-    createCampaign: async (name: string, type: string, scheduledAt?: string, phoneNumbers?: string[]) => {
+    createCampaign: async (userId: string, name: string, type: string, scheduledAt?: string, phoneNumbers?: string[]) => {
         const campaign = await prisma.campaign.create({
             data: {
                 name,
                 type,
                 scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
                 status: 'DRAFT',
+                userId,
             },
         });
 
@@ -18,7 +19,7 @@ export const CampaignService = {
             for (const phone of phoneNumbers) {
                 // Find customer by phone
                 let customer = await prisma.customer.findFirst({
-                    where: { phone }
+                    where: { phone, userId }
                 });
 
                 // Create customer if it doesn't exist
@@ -27,6 +28,7 @@ export const CampaignService = {
                         data: {
                             name: 'Unknown',
                             phone: phone,
+                            userId,
                         }
                     });
                 }
@@ -38,6 +40,7 @@ export const CampaignService = {
                         campaignId: campaign.id,
                         appointmentTime: scheduledAt ? new Date(scheduledAt) : new Date(),
                         status: 'PENDING',
+                        userId,
                     }
                 });
             }
@@ -46,25 +49,35 @@ export const CampaignService = {
         return campaign;
     },
 
-    getAllCampaigns: async () => {
+    getAllCampaigns: async (userId: string) => {
         return prisma.campaign.findMany({
+            where: { userId },
             orderBy: { createdAt: 'desc' },
             include: {
-                bookings: true, // You might limit this for performance later
+                bookings: { where: { userId } }, // You might limit this for performance later
             },
         });
     },
 
-    getCampaignById: async (id: string) => {
-        return prisma.campaign.findUnique({
-            where: { id },
-            include: { bookings: true }
+    getCampaignById: async (userId: string, id: string) => {
+        return prisma.campaign.findFirst({
+            where: { id, userId },
+            include: { bookings: { where: { userId } } }
         });
     },
 
-    startCampaign: async (campaignId: string) => {
+    startCampaign: async (userId: string, campaignId: string) => {
         // 1. Update status to RUNNING
-        const campaign = await prisma.campaign.update({
+        const campaign = await prisma.campaign.findFirst({
+            where: { id: campaignId, userId },
+            select: { id: true },
+        });
+
+        if (!campaign) {
+            return { message: 'Campaign not found', count: 0 };
+        }
+
+        await prisma.campaign.update({
             where: { id: campaignId },
             data: { status: 'RUNNING' },
             include: { bookings: true }, // Ideally linking bookings happens before start
@@ -79,6 +92,7 @@ export const CampaignService = {
             where: {
                 campaignId: campaignId,
                 status: BookingStatus.PENDING,
+                userId,
             },
             include: { customer: true }
         });
@@ -121,6 +135,7 @@ export const CampaignService = {
                             bookingId: booking.id,
                             sid: call.sid,
                             callStatus: call.status,
+                            userId,
                         }
                     });
 

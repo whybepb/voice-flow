@@ -16,6 +16,7 @@ export default function CustomersPage() {
         const fetchCustomers = async () => {
             try {
                 const res = await api.get('/customers');
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const fetchedCustomers = res.data.customers.map((c: any) => {
                     const bookings = c.bookings || [];
                     const lastBooking = bookings.length > 0

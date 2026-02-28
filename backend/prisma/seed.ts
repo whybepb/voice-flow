@@ -30,6 +30,7 @@ async function main() {
                 name: 'Alice Johnson',
                 email: 'alice@example.com',
                 phone: '+15551001001',
+                userId: admin.id,
             },
         }),
         prisma.customer.create({
@@ -37,6 +38,7 @@ async function main() {
                 name: 'Bob Smith',
                 email: 'bob@example.com',
                 phone: '+15551001002',
+                userId: admin.id,
             },
         }),
         prisma.customer.create({
@@ -44,6 +46,7 @@ async function main() {
                 name: 'Charlie Davis',
                 email: 'charlie@example.com',
                 phone: '+15551001003',
+                userId: admin.id,
             },
         }),
         prisma.customer.create({
@@ -51,6 +54,7 @@ async function main() {
                 name: 'Diana Martinez',
                 email: 'diana@example.com',
                 phone: '+15551001004',
+                userId: admin.id,
             },
         }),
         prisma.customer.create({
@@ -58,6 +62,7 @@ async function main() {
                 name: 'Ethan Brown',
                 email: 'ethan@example.com',
                 phone: '+15551001005',
+                userId: admin.id,
             },
         }),
     ]);
@@ -70,6 +75,7 @@ async function main() {
             type: 'Confirmation',
             status: 'COMPLETED',
             scheduledAt: new Date('2026-02-20T09:00:00Z'),
+            userId: admin.id,
         },
     });
 
@@ -78,6 +84,7 @@ async function main() {
             name: 'Reminder Batch — Week 9',
             type: 'Reminder',
             status: 'DRAFT',
+            userId: admin.id,
         },
     });
     console.log(`  ✓ Created 2 campaigns`);
@@ -98,11 +105,13 @@ async function main() {
             service: 'Dental Cleaning',
             status: 'CONFIRMED',
             lastCallStatus: 'completed',
+            userId: admin.id,
             callLogs: {
                 create: {
                     sid: 'CA_DEMO_001',
                     callStatus: 'completed',
                     duration: 47,
+                    userId: admin.id,
                     transcript:
                         'Assistant: Hi! This is your appointment reminder from the clinic. How can I help you today?\n' +
                         'Caller: Hi, I just wanted to confirm my dental cleaning appointment for tomorrow.\n' +
@@ -125,11 +134,13 @@ async function main() {
             service: 'Teeth Whitening',
             status: 'RESCHEDULED',
             lastCallStatus: 'completed',
+            userId: admin.id,
             callLogs: {
                 create: {
                     sid: 'CA_DEMO_002',
                     callStatus: 'completed',
                     duration: 83,
+                    userId: admin.id,
                     transcript:
                         'Assistant: Hello! This is the dental office calling about your upcoming appointment. How can I assist you?\n' +
                         'Caller: Hi, I need to reschedule my whitening appointment. The original time doesn\'t work for me anymore.\n' +
@@ -152,11 +163,13 @@ async function main() {
             service: 'Root Canal',
             status: 'PENDING',
             lastCallStatus: 'no-answer',
+            userId: admin.id,
             callLogs: {
                 create: {
                     sid: 'CA_DEMO_003',
                     callStatus: 'no-answer',
                     duration: 0,
+                    userId: admin.id,
                 },
             },
         },
@@ -169,6 +182,7 @@ async function main() {
             appointmentTime: new Date(dayAfter.setHours(9, 0, 0, 0)),
             service: 'Consultation',
             status: 'PENDING',
+            userId: admin.id,
         },
     });
 
@@ -181,11 +195,13 @@ async function main() {
             service: 'Check-up',
             status: 'CANCELLED',
             lastCallStatus: 'completed',
+            userId: admin.id,
             callLogs: {
                 create: {
                     sid: 'CA_DEMO_004',
                     callStatus: 'completed',
                     duration: 35,
+                    userId: admin.id,
                     transcript:
                         'Assistant: Hi there! I\'m calling about your upcoming check-up appointment. How can I help?\n' +
                         'Caller: Hi, I actually need to cancel that appointment.\n' +

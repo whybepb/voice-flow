@@ -4,6 +4,7 @@ import prisma from '../prisma';
 export const getCallLogs = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const callLogs = await prisma.callLog.findMany({
+            where: { userId: req.user!.id },
             include: {
                 booking: {
                     include: {
@@ -33,8 +34,8 @@ export const getCallLogById = async (req: Request, res: Response, next: NextFunc
     try {
         const { id } = req.params as { id: string };
 
-        const callLog = await prisma.callLog.findUnique({
-            where: { id },
+        const callLog = await prisma.callLog.findFirst({
+            where: { id, userId: req.user!.id },
             include: {
                 booking: {
                     include: {

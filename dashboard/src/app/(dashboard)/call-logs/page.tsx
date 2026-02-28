@@ -7,7 +7,7 @@ import TranscriptViewer from '@/components/TranscriptViewer';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
-import { Phone, Clock, FileText, Bot, PhoneOff, PhoneIncoming } from 'lucide-react';
+import { Phone, FileText, Bot, PhoneOff, PhoneIncoming } from 'lucide-react';
 
 interface CallLog {
     id: string;
@@ -86,12 +86,14 @@ export default function CallLogsPage() {
     const completedCalls = callLogs.filter((l) => l.callStatus?.toLowerCase() === 'completed').length;
     const failedCalls = callLogs.filter((l) => ['failed', 'busy', 'no-answer', 'canceled'].includes(l.callStatus?.toLowerCase())).length;
     const withTranscripts = callLogs.filter((l) => l.transcript).length;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const avgDuration = callLogs.filter((l) => l.duration).reduce((acc, l) => acc + (l.duration || 0), 0) / (callLogs.filter((l) => l.duration).length || 1);
 
     const columns = [
         {
             header: 'Customer',
             accessor: 'customerName',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             render: (row: any) => (
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary/20 to-violet-500/20 flex items-center justify-center border border-white/5 text-xs font-bold text-primary">
@@ -108,6 +110,7 @@ export default function CallLogsPage() {
         {
             header: 'Status',
             accessor: 'callStatus',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             render: (row: any) => <StatusBadge status={row.callStatus} />,
         },
         { header: 'Duration', accessor: 'duration' },
@@ -115,6 +118,7 @@ export default function CallLogsPage() {
         {
             header: 'Transcript',
             accessor: 'hasTranscript',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             render: (row: any) => (
                 <button
                     onClick={() => openTranscript(row._raw)}

@@ -1,17 +1,52 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import DashboardShell from '@/components/DashboardShell';
 import StatCard from '@/components/StatCard';
 import Chart from '@/components/Chart';
 import DataTable from '@/components/DataTable';
 import StatusBadge from '@/components/StatusBadge';
-import { Calendar, Users, PhoneCall, TrendingUp, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, Users, TrendingUp, Clock, AlertCircle } from 'lucide-react';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { api } from '@/lib/api';
 import { Booking, DashboardStats } from '@/lib/data';
 
-export default function DashboardPage() {
+export default function HomePage() {
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        router.replace('/landing');
+      } else if (user && !user.onboardingComplete) {
+        router.replace('/onboarding');
+      }
+    }
+  }, [isAuthenticated, authLoading, user, router]);
+
+  if (authLoading || !isAuthenticated || (user && !user.onboardingComplete)) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <DashboardShell>
+      <DashboardContent />
+    </DashboardShell>
+  );
+}
+
+function DashboardContent() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     appointmentsToday: 0,
@@ -35,6 +70,7 @@ export default function DashboardPage() {
           api.get('/analytics/dashboard'),
         ]);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const fetchedBookings = bookingsRes.data.bookings.map((b: any) => ({
           id: b.id,
           name: b.customer?.name || 'Unknown',
@@ -48,14 +84,13 @@ export default function DashboardPage() {
 
         setBookings(fetchedBookings);
 
-        // Calculate stats
-        const confirmed = fetchedBookings.filter((b: any) => b.status === 'CONFIRMED').length;
-        const pending = fetchedBookings.filter((b: any) => b.status === 'PENDING').length;
-        const rescheduled = fetchedBookings.filter((b: any) => b.status === 'RESCHEDULED').length;
-        const failed = fetchedBookings.filter((b: any) => b.callStatus?.toLowerCase() === 'failed').length;
+        const confirmed = fetchedBookings.filter((b: Record<string, string>) => b.status === 'CONFIRMED').length;
+        const pending = fetchedBookings.filter((b: Record<string, string>) => b.status === 'PENDING').length;
+        const rescheduled = fetchedBookings.filter((b: Record<string, string>) => b.status === 'RESCHEDULED').length;
+        const failed = fetchedBookings.filter((b: Record<string, string>) => b.callStatus?.toLowerCase() === 'failed').length;
         const totalCustomers = customersRes.results;
         const today = new Date().toDateString();
-        const todayAppointments = fetchedBookings.filter((b: any) => new Date(b.appointmentTime).toDateString() === today).length;
+        const todayAppointments = fetchedBookings.filter((b: Record<string, string>) => new Date(b.appointmentTime).toDateString() === today).length;
 
         setStats({
           appointmentsToday: todayAppointments,
@@ -67,12 +102,10 @@ export default function DashboardPage() {
           confirmationRate: fetchedBookings.length > 0 ? (confirmed / fetchedBookings.length) * 100 : 0,
         });
 
-        // Use real chart data from analytics API
         if (analyticsRes.monthly?.callVolume) {
           setChartData(analyticsRes.monthly.callVolume);
         }
 
-        // Use real campaign summary
         if (analyticsRes.campaignSummary) {
           setCampaignSummary({
             active: analyticsRes.campaignSummary.active || 0,
@@ -94,77 +127,32 @@ export default function DashboardPage() {
     { header: 'Name', accessor: 'name' },
     { header: 'Service', accessor: 'service' },
     { header: 'Appointment', accessor: 'appointmentTime' },
-    { header: 'Status', accessor: 'status', render: (row: any) => <StatusBadge status={row.status} /> },
-    { header: 'Call Status', accessor: 'callStatus', render: (row: any) => <StatusBadge status={row.callStatus} /> },
+    { header: 'Status', accessor: 'status', render: (row: Record<string, string>) => <StatusBadge status={row.status} /> },
+    { header: 'Call Status', accessor: 'callStatus', render: (row: Record<string, string>) => <StatusBadge status={row.callStatus} /> },
   ];
 
   if (loading) {
-    return <PageSkeleton />; // Animated skeleton loading state
+    return <PageSkeleton />;
   }
 
   return (
     <StaggerContainer className="space-y-8">
-      {/* Header */}
       <FadeIn>
         <h1 className="text-3xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1.5">Overview of your booking automation platform</p>
       </FadeIn>
 
-      {/* Stats Grid */}
       <FadeIn>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatCard
-            title="Total Bookings Today"
-            value={stats.appointmentsToday}
-            trend="up"
-            trendValue="Calculated from real data"
-            icon={Calendar}
-            color="primary"
-          />
-          <StatCard
-            title="Confirmed"
-            value={stats.confirmedCount}
-            trend="up"
-            trendValue="Real-time"
-            icon={TrendingUp}
-            color="emerald"
-          />
-          <StatCard
-            title="Pending Confirmations"
-            value={stats.pendingCount}
-            trend="neutral"
-            trendValue="Real-time"
-            icon={Clock}
-            color="amber"
-          />
-          <StatCard
-            title="Rescheduled"
-            value={stats.rescheduledCount}
-            trend="up"
-            trendValue="Real-time"
-            icon={Clock}
-            color="violet"
-          />
-          <StatCard
-            title="Failed Calls"
-            value={stats.failedCalls}
-            trend="down"
-            trendValue="Real-time"
-            icon={AlertCircle}
-            color="rose"
-          />
-          <StatCard
-            title="Total Customers"
-            value={stats.totalCustomers}
-            trend="up"
-            trendValue="Real-time"
-            icon={Users}
-            color="primary"
-          />
+          <StatCard title="Total Bookings Today" value={stats.appointmentsToday} trend="up" trendValue="Calculated from real data" icon={Calendar} color="primary" />
+          <StatCard title="Confirmed" value={stats.confirmedCount} trend="up" trendValue="Real-time" icon={TrendingUp} color="emerald" />
+          <StatCard title="Pending Confirmations" value={stats.pendingCount} trend="neutral" trendValue="Real-time" icon={Clock} color="amber" />
+          <StatCard title="Rescheduled" value={stats.rescheduledCount} trend="up" trendValue="Real-time" icon={Clock} color="violet" />
+          <StatCard title="Failed Calls" value={stats.failedCalls} trend="down" trendValue="Real-time" icon={AlertCircle} color="rose" />
+          <StatCard title="Total Customers" value={stats.totalCustomers} trend="up" trendValue="Real-time" icon={Users} color="primary" />
         </div>
       </FadeIn>
 
-      {/* Quick Stats Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <FadeIn direction="left" delay={0.2} className="lg:col-span-2">
           <div className="rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-sm h-full flex flex-col justify-center">
@@ -203,24 +191,12 @@ export default function DashboardPage() {
               <h2 className="text-lg font-bold text-foreground">Recent Bookings</h2>
               <button className="text-xs text-primary hover:text-primary/80 transition-colors font-medium">View all →</button>
             </div>
-            <DataTable
-              data={bookings}
-              columns={columns}
-              searchPlaceholder="Search bookings..."
-              pageSize={5}
-            />
+            <DataTable data={bookings} columns={columns} searchPlaceholder="Search bookings..." pageSize={5} />
           </div>
         </FadeIn>
 
         <FadeIn delay={0.5}>
-          <Chart
-            data={chartData}
-            dataKey="value"
-            title="Call Volume"
-            subtitle="Calls made over last 6 months"
-            type="area"
-            height={320}
-          />
+          <Chart data={chartData} dataKey="value" title="Call Volume" subtitle="Calls made over last 6 months" type="area" height={320} />
         </FadeIn>
       </div>
     </StaggerContainer>

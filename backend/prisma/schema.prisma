@@ -11,8 +11,19 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
+  name      String?
+  company   String?
+  twilioAccountSid  String?
+  twilioAuthToken   String?
+  twilioPhoneNumber String?
+  openaiApiKey      String?
+  onboardingComplete Boolean @default(false)
   role      Role     @default(USER)
   createdAt DateTime @default(now())
+  customers Customer[]
+  campaigns Campaign[]
+  bookings  Booking[]
+  callLogs  CallLog[]
 }
 
 model Customer {
@@ -22,10 +33,15 @@ model Customer {
   email     String?
   createdAt DateTime  @default(now())
   bookings  Booking[]
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  @@index([userId])
 }
 
 model Booking {
   id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
   customerId     String
   customer       Customer      @relation(fields: [customerId], references: [id])
   campaignId     String?
@@ -36,10 +52,13 @@ model Booking {
   lastCallStatus String?
   createdAt      DateTime      @default(now())
   callLogs       CallLog[]
+  @@index([userId])
 }
 
 model CallLog {
   id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
   bookingId   String
   booking     Booking  @relation(fields: [bookingId], references: [id])
   sid         String?  @unique // Twilio Call SID
@@ -48,6 +67,7 @@ model CallLog {
   recordingUrl String?
   duration    Int?
   createdAt   DateTime @default(now())
+  @@index([userId])
 }
 
 model Campaign {
@@ -59,6 +79,9 @@ model Campaign {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   bookings    Booking[]
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  @@index([userId])
 }
 
 enum Role {
@@ -72,4 +95,3 @@ enum BookingStatus {
   RESCHEDULED
   CANCELLED
 }
-

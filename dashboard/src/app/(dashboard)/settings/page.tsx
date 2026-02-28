@@ -3,7 +3,7 @@
 import React from 'react';
 import Button from '@/components/Button';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
-import { Building2, Bell, Shield, Mic, Save, Copy, Check } from 'lucide-react';
+import { Building2, Bell, Shield, Mic, Save, Copy } from 'lucide-react';
 
 export default function SettingsPage() {
     return (

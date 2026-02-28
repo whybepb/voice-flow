@@ -10,9 +10,19 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
             return next(new AppError('Please provide customerId and appointmentTime', 400));
         }
 
+        const customer = await prisma.customer.findFirst({
+            where: { id: customerId, userId: req.user!.id },
+            select: { id: true },
+        });
+
+        if (!customer) {
+            return next(new AppError('Customer not found', 404));
+        }
+
         const booking = await prisma.booking.create({
             data: {
                 customerId,
+                userId: req.user!.id,
                 appointmentTime: new Date(appointmentTime),
             },
         });
@@ -31,9 +41,11 @@ export const createBooking = async (req: Request, res: Response, next: NextFunct
 export const getBookings = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const bookings = await prisma.booking.findMany({
+            where: { userId: req.user!.id },
             include: {
                 customer: true,
                 callLogs: {
+                    where: { userId: req.user!.id },
                     orderBy: { createdAt: 'desc' },
                     take: 1,
                 },
@@ -64,15 +76,20 @@ export const updateBookingStatus = async (req: Request, res: Response, next: Nex
             return next(new AppError('Please provide status', 400));
         }
 
-        const booking = await prisma.booking.update({
-            where: { id },
+        const result = await prisma.booking.updateMany({
+            where: { id, userId: req.user!.id },
             data: { status },
         });
+
+        if (result.count === 0) {
+            return next(new AppError('Booking not found', 404));
+        }
 
         res.status(200).json({
             status: 'success',
             data: {
-                booking,
+                id,
+                status,
             },
         });
     } catch (error) {

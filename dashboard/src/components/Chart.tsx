@@ -43,7 +43,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export default function Chart({ data, dataKey, title, subtitle, color = '#6366f1', type = 'bar', height = 240 }: ChartProps) {
+export default function Chart({ data, dataKey, title, subtitle, color = '#6366f1', type = 'bar', height: _height = 240 }: ChartProps) {
     const commonProps = {
         data,
         margin: { top: 10, right: 10, left: -20, bottom: 0 },

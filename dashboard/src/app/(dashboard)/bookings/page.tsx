@@ -16,6 +16,7 @@ export default function BookingsPage() {
         const fetchBookings = async () => {
             try {
                 const res = await api.get('/bookings');
+                //  eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const fetchedBookings = res.data.bookings.map((b: any) => ({
                     id: b.id,
                     name: b.customer?.name || 'Unknown',

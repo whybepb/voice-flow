@@ -17,6 +17,7 @@ import {
     FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -36,9 +37,33 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const pathname = usePathname();
     const [isHovered, setIsHovered] = useState(false);
+    const { user, logout } = useAuth();
 
     // Sidebar is visible if manually opened OR hovered
     const isVisible = isOpen || isHovered;
+
+    // Get user initials
+    const getInitials = () => {
+        if (user?.name) {
+            const parts = user.name.split(' ');
+            return parts.map(p => p[0]).join('').toUpperCase().slice(0, 2);
+        }
+        if (user?.email) {
+            return user.email[0].toUpperCase();
+        }
+        return 'U';
+    };
+
+    const getDisplayName = () => {
+        if (user?.name) {
+            const parts = user.name.split(' ');
+            if (parts.length > 1) {
+                return `${parts[0]} ${parts[1][0]}.`;
+            }
+            return parts[0];
+        }
+        return user?.email?.split('@')[0] || 'User';
+    };
 
     return (
         <>
@@ -125,15 +150,24 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
                 {/* Footer */}
                 <div className="p-4 border-t border-white/5">
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-b from-white/5 to-transparent border border-white/5 hover:border-white/10 transition-colors group">
                         <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 flex items-center justify-center border border-white/5 group-hover:scale-105 transition-transform">
-                            <span className="text-xs font-bold text-indigo-400">PB</span>
+                            <span className="text-xs font-bold text-indigo-400">{getInitials()}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium text-white truncate">Prathmesh B.</p>
-                            <p className="text-[11px] text-muted-foreground truncate">Admin</p>
+                            <p className="text-[13px] font-medium text-white truncate">{getDisplayName()}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{user?.role || 'User'}</p>
                         </div>
-                        <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-red-400 transition-colors" />
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                logout();
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Sign out"
+                        >
+                            <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-red-400 transition-colors" />
+                        </button>
                     </div>
                 </div>
             </motion.aside>
