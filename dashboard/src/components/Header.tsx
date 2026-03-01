@@ -22,17 +22,16 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 </button>
 
                 {/* Search */}
-                <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-card/60 rounded-xl border border-border/60 w-80 hover:border-border transition-colors">
-                    <svg className="w-4 h-4 text-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button
+                    onClick={() => document.dispatchEvent(new Event('openCommandPalette'))}
+                    className="hidden sm:flex items-center gap-3 px-4 py-2 bg-card/60 rounded-xl border border-border/60 w-80 hover:bg-card/80 hover:border-border transition-all group text-left"
+                >
+                    <svg className="w-4 h-4 text-muted flex-shrink-0 group-hover:text-foreground transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <input
-                        type="text"
-                        placeholder="Search anything..."
-                        className="bg-transparent text-sm text-foreground placeholder:text-muted/60 outline-none w-full"
-                    />
+                    <span className="text-sm text-muted/60 group-hover:text-foreground/80 transition-colors flex-1">Search anything...</span>
                     <kbd className="hidden lg:inline-flex px-2 py-0.5 text-[10px] font-semibold text-muted/50 bg-background/60 rounded-md border border-border/60">⌘K</kbd>
-                </div>
+                </button>
             </div>
 
             {/* Right side */}

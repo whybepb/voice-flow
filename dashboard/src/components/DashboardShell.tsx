@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import CommandPalette from './CommandPalette';
 
 interface DashboardShellProps {
     children: React.ReactNode;
@@ -13,6 +14,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
     return (
         <div className="flex h-screen overflow-hidden bg-background">
+            <CommandPalette />
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
                 <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
