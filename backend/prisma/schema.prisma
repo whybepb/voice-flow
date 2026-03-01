@@ -21,6 +21,8 @@ model User {
   openaiApiKey      String?
   onboardingComplete Boolean @default(false)
   role      Role     @default(USER)
+  agentVoice      String?  @default("alloy")
+  agentPrompt     String?  @default("You are a helpful AI assistant representing the company. Be professional and concise.")
   createdAt DateTime @default(now())
   customers      Customer[]
   campaigns      Campaign[]
@@ -69,6 +71,9 @@ model CallLog {
   transcript  String?
   recordingUrl String?
   duration    Int?
+  summary     String?  // Post-call AI summary
+  sentiment   String?  // Positive, Neutral, Negative, etc.
+  actionItems String?  // Extracted action items
   createdAt   DateTime @default(now())
   @@index([userId])
 }

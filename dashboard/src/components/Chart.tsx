@@ -43,7 +43,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export default function Chart({ data, dataKey, title, subtitle, color = '#6366f1', type = 'bar', height: _height = 240 }: ChartProps) {
+export default function Chart({ data, dataKey, title, subtitle, color = '#6366f1', type = 'bar', height = 240 }: ChartProps) {
     const commonProps = {
         data,
         margin: { top: 10, right: 10, left: -20, bottom: 0 },
@@ -125,7 +125,7 @@ export default function Chart({ data, dataKey, title, subtitle, color = '#6366f1
                 <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>
                 {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{subtitle}</p>}
             </div>
-            <div className="h-[240px] w-full">
+            <div className="w-full" style={{ height }}>
                 <ResponsiveContainer width="100%" height="100%">
                     {renderChart()}
                 </ResponsiveContainer>

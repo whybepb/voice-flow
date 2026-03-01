@@ -3,16 +3,16 @@ import OpenAI from 'openai';
 const EMBEDDING_MODEL = 'text-embedding-3-small'; // 1536 dimensions, $0.02/1M tokens
 const MAX_BATCH_SIZE = 2048;
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI(apiKey: string) {
+    return new OpenAI({ apiKey });
+}
 
 /**
  * Generate an embedding vector for a single text string.
  * Uses OpenAI text-embedding-3-small (1536 dimensions).
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
+    const openai = getOpenAI(apiKey);
     const response = await openai.embeddings.create({
         model: EMBEDDING_MODEL,
         input: text,
@@ -25,10 +25,11 @@ export async function generateEmbedding(text: string): Promise<number[]> {
  * OpenAI supports up to 2048 inputs per request.
  * Automatically batches if needed.
  */
-export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+export async function generateEmbeddings(texts: string[], apiKey: string): Promise<number[][]> {
     if (texts.length === 0) return [];
 
     const allEmbeddings: number[][] = [];
+    const openai = getOpenAI(apiKey);
 
     // Process in batches of MAX_BATCH_SIZE
     for (let i = 0; i < texts.length; i += MAX_BATCH_SIZE) {

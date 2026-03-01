@@ -9,4 +9,5 @@ router.post('/login', auth_controller_1.login);
 router.post('/google', auth_controller_1.googleLogin);
 router.get('/me', auth_middleware_1.authGuard, auth_controller_1.getMe);
 router.patch('/onboarding', auth_middleware_1.authGuard, auth_controller_1.updateOnboarding);
+router.patch('/settings', auth_middleware_1.authGuard, auth_controller_1.updateSettings);
 exports.default = router;

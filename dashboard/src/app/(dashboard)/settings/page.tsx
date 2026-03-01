@@ -1,11 +1,62 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Button from '@/components/Button';
 import { FadeIn, StaggerContainer } from '@/components/ui/Motion';
-import { Building2, Bell, Shield, Mic, Save, Copy } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/Skeleton';
+import { Building2, Bell, Shield, Mic, Save, Copy, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 export default function SettingsPage() {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    const [formData, setFormData] = useState({
+        name: '',
+        company: '',
+        agentVoice: 'alloy',
+        agentPrompt: '',
+    });
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await api.get('/auth/me');
+                if (res.data) {
+                    setFormData({
+                        name: res.data.name || '',
+                        company: res.data.company || '',
+                        agentVoice: res.data.agentVoice || 'alloy',
+                        agentPrompt: res.data.agentPrompt || 'You are a helpful AI assistant representing the company. Be professional and concise.',
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to load settings:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            await api.patch('/auth/settings', formData);
+            // Optionally could show a success toast here
+        } catch (err) {
+            console.error('Failed to save settings:', err);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) return <PageSkeleton />;
+
     return (
         <StaggerContainer className="space-y-8">
             {/* Page Header */}
@@ -32,30 +83,28 @@ export default function SettingsPage() {
                                 <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Business Name</label>
                                 <input
                                     type="text"
-                                    defaultValue="VoiceFlow Dental Clinic"
+                                    name="company"
+                                    value={formData.company}
+                                    onChange={handleChange}
+                                    placeholder="e.g. Acme Corp"
                                     className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 focus:bg-white/10 transition-all"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Business Phone</label>
+                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Agent Name (Your Name)</label>
                                 <input
                                     type="text"
-                                    defaultValue="+1 (555) 000-1234"
-                                    className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 focus:bg-white/10 transition-all"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Business Email</label>
-                                <input
-                                    type="email"
-                                    defaultValue="admin@voiceflow-dental.com"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    placeholder="John Doe"
                                     className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 focus:bg-white/10 transition-all"
                                 />
                             </div>
                         </div>
                         <div className="pt-2">
-                            <Button>
-                                <Save className="w-4 h-4 mr-2" />
+                            <Button onClick={handleSave} disabled={saving}>
+                                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                                 Save Changes
                             </Button>
                         </div>
@@ -150,13 +199,20 @@ export default function SettingsPage() {
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Voice Style</label>
+                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Voice Model</label>
                                 <div className="relative">
-                                    <select className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer transition-all appearance-none">
-                                        <option>Professional Female</option>
-                                        <option>Professional Male</option>
-                                        <option>Friendly Female</option>
-                                        <option>Friendly Male</option>
+                                    <select
+                                        name="agentVoice"
+                                        value={formData.agentVoice}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer transition-all appearance-none"
+                                    >
+                                        <option value="alloy">Alloy (Neutral, versatile)</option>
+                                        <option value="echo">Echo (Warm, approachable)</option>
+                                        <option value="shimmer">Shimmer (Clear, articulate)</option>
+                                        <option value="ash">Ash (Professional, male)</option>
+                                        <option value="coral">Coral (Friendly, female)</option>
+                                        <option value="sage">Sage (Calm, authoritative)</option>
                                     </select>
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -164,18 +220,25 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Max Retry Attempts</label>
-                                <input
-                                    type="number"
-                                    defaultValue={3}
-                                    min={1}
-                                    max={5}
-                                    className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 transition-all"
+                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">System Instructions (Personality & Rules)</label>
+                                <textarea
+                                    name="agentPrompt"
+                                    value={formData.agentPrompt}
+                                    onChange={handleChange}
+                                    rows={5}
+                                    className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 transition-all resize-none"
+                                    placeholder="You are a helpful and enthusiastic AI voice assistant..."
                                 />
+                                <p className="text-[11px] text-muted-foreground mt-2">
+                                    Define how the AI should behave during the call.
+                                </p>
                             </div>
                         </div>
                         <div className="pt-2">
-                            <Button>Save Voice Settings</Button>
+                            <Button onClick={handleSave} disabled={saving}>
+                                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                Save Voice Settings
+                            </Button>
                         </div>
                     </div>
                 </FadeIn>

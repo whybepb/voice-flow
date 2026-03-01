@@ -129,7 +129,13 @@ export const queryKnowledge = async (req: Request, res: Response, next: NextFunc
 
         let answer: string | undefined = undefined;
         if (generateAnswer) {
-            answer = await generateRAGAnswer(ragContext.prompt);
+            const user = await prisma.user.findUnique({
+                where: { id: req.user!.id },
+                select: { openaiApiKey: true },
+            });
+            if (user?.openaiApiKey) {
+                answer = await generateRAGAnswer(ragContext.prompt, user.openaiApiKey);
+            }
         }
 
         res.status(200).json({

@@ -16,6 +16,9 @@ interface CallLog {
     transcript: string | null;
     recordingUrl: string | null;
     duration: number | null;
+    summary: string | null;
+    sentiment: string | null;
+    actionItems: string | null;
     createdAt: string;
     booking: {
         id: string;
@@ -37,7 +40,16 @@ export default function CallLogsPage() {
     const [loading, setLoading] = useState(true);
     const [selectedTranscript, setSelectedTranscript] = useState<{
         transcript: string | null;
-        details: { customerName: string; phone: string; duration?: number; status: string; date: string };
+        details: {
+            customerName: string;
+            phone: string;
+            duration?: number;
+            status: string;
+            date: string;
+            summary?: string | null;
+            sentiment?: string | null;
+            actionItems?: string | null;
+        };
     } | null>(null);
 
     useEffect(() => {
@@ -64,6 +76,9 @@ export default function CallLogsPage() {
                 duration: log.duration ?? undefined,
                 status: log.callStatus,
                 date: new Date(log.createdAt).toLocaleString(),
+                summary: log.summary,
+                sentiment: log.sentiment,
+                actionItems: log.actionItems,
             },
         });
     };

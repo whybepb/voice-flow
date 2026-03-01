@@ -22,9 +22,13 @@ export interface RAGContext {
     sources: { fileName: string; chunkIndex: number; similarity: number }[];
 }
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+async function getUserOpenAIKey(userId: string): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { openaiApiKey: true },
+    });
+    return user?.openaiApiKey || null;
+}
 
 // ─── Document Ingestion ─────────────────────────────────────────────
 
@@ -57,9 +61,17 @@ export async function ingestDocument(
             return;
         }
 
-        // 3. Generate embeddings in batch
+        // 3. Generate embeddings in batch (per-user key)
+        const apiKey = await getUserOpenAIKey(userId);
+        if (!apiKey) {
+            await prisma.knowledgeDocument.update({
+                where: { id: documentId },
+                data: { status: 'FAILED', rawContent },
+            });
+            return;
+        }
         const texts = chunks.map((c) => c.content);
-        const embeddings = await generateEmbeddings(texts);
+        const embeddings = await generateEmbeddings(texts, apiKey);
         console.log(`[RAG] Generated ${embeddings.length} embeddings`);
 
         // 4. Store chunks with embeddings using raw SQL (Prisma can't handle vector type directly)
@@ -113,8 +125,10 @@ export async function searchKnowledge(
     query: string,
     topK: number = 5,
 ): Promise<SearchResult[]> {
-    // 1. Generate embedding for the query
-    const queryEmbedding = await generateEmbedding(query);
+    // 1. Generate embedding for the query (per-user key)
+    const apiKey = await getUserOpenAIKey(userId);
+    if (!apiKey) return [];
+    const queryEmbedding = await generateEmbedding(query, apiKey);
     const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
     // 2. Vector similarity search scoped to user's documents
@@ -181,7 +195,8 @@ Answer the user's question based on the above information. Cite which source doc
 /**
  * Generate a concise answer using the RAG prompt.
  */
-export async function generateRAGAnswer(prompt: string): Promise<string> {
+export async function generateRAGAnswer(prompt: string, apiKey: string): Promise<string> {
+    const openai = new OpenAI({ apiKey });
     const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -278,6 +293,18 @@ export async function reindexDocument(
  */
 async function reindexFromContent(documentId: string, rawContent: string): Promise<void> {
     try {
+        const doc = await prisma.knowledgeDocument.findUnique({
+            where: { id: documentId },
+            select: { userId: true },
+        });
+        const apiKey = doc ? await getUserOpenAIKey(doc.userId) : null;
+        if (!apiKey) {
+            await prisma.knowledgeDocument.update({
+                where: { id: documentId },
+                data: { status: 'FAILED', chunkCount: 0 },
+            });
+            return;
+        }
         const chunks = chunkText(rawContent);
         if (chunks.length === 0) {
             await prisma.knowledgeDocument.update({
@@ -287,7 +314,7 @@ async function reindexFromContent(documentId: string, rawContent: string): Promi
             return;
         }
         const texts = chunks.map((c) => c.content);
-        const embeddings = await generateEmbeddings(texts);
+        const embeddings = await generateEmbeddings(texts, apiKey);
 
         for (let i = 0; i < chunks.length; i++) {
             const id = randomUUID();

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Bot, Clock, Phone } from 'lucide-react';
+import { X, User, Bot, Clock, Phone, Sparkles, CheckSquare } from 'lucide-react';
 
 interface TranscriptViewerProps {
     isOpen: boolean;
@@ -14,6 +14,9 @@ interface TranscriptViewerProps {
         duration?: number;
         status?: string;
         date?: string;
+        summary?: string | null;
+        sentiment?: string | null;
+        actionItems?: string | null;
     };
 }
 
@@ -74,8 +77,8 @@ export default function TranscriptViewer({ isOpen, onClose, transcript, callDeta
                                 )}
                                 {callDetails.status && (
                                     <div className={`flex items-center gap-1.5 text-xs font-medium ${callDetails.status === 'completed' ? 'text-emerald-400' :
-                                            callDetails.status === 'failed' ? 'text-red-400' :
-                                                'text-amber-400'
+                                        callDetails.status === 'failed' ? 'text-red-400' :
+                                            'text-amber-400'
                                         }`}>
                                         <Phone className="w-3.5 h-3.5" />
                                         <span className="capitalize">{callDetails.status}</span>
@@ -83,6 +86,38 @@ export default function TranscriptViewer({ isOpen, onClose, transcript, callDeta
                                 )}
                                 {callDetails.date && (
                                     <span className="text-[11px] text-muted-foreground ml-auto">{callDetails.date}</span>
+                                )}
+                            </div>
+                        )}
+
+                        {/* AI Summary Section */}
+                        {callDetails && (callDetails.summary || callDetails.sentiment || callDetails.actionItems) && (
+                            <div className="px-6 py-4 border-b border-white/5 bg-indigo-500/5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                                    <h3 className="text-sm font-bold text-white">AI Post-Call Analysis</h3>
+                                    {callDetails.sentiment && (
+                                        <span className={`ml-auto text-[11px] px-2 py-0.5 rounded-full border font-medium ${callDetails.sentiment.toLowerCase().includes('positive') ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                                                callDetails.sentiment.toLowerCase().includes('angry') || callDetails.sentiment.toLowerCase().includes('negative') ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                                    'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                            }`}>
+                                            {callDetails.sentiment}
+                                        </span>
+                                    )}
+                                </div>
+                                {callDetails.summary && (
+                                    <div className="mb-3">
+                                        <p className="text-xs text-muted-foreground/80 mb-1 uppercase tracking-wider font-semibold">Summary</p>
+                                        <p className="text-sm text-white/90 leading-relaxed">{callDetails.summary}</p>
+                                    </div>
+                                )}
+                                {callDetails.actionItems && callDetails.actionItems.toLowerCase() !== 'none' && (
+                                    <div>
+                                        <p className="text-xs text-muted-foreground/80 mb-1 uppercase tracking-wider font-semibold flex items-center gap-1">
+                                            <CheckSquare className="w-3.5 h-3.5" /> Action Items
+                                        </p>
+                                        <p className="text-sm text-indigo-200/90 leading-relaxed whitespace-pre-wrap pl-1 border-l-2 border-indigo-500/30">{callDetails.actionItems}</p>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -110,10 +145,10 @@ export default function TranscriptViewer({ isOpen, onClose, transcript, callDeta
                                             )}
                                             <div
                                                 className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isAssistant
-                                                        ? 'bg-white/5 border border-white/5 text-white/90'
-                                                        : isCaller
-                                                            ? 'bg-indigo-500/15 border border-indigo-500/20 text-indigo-100'
-                                                            : 'bg-white/5 border border-white/5 text-white/70'
+                                                    ? 'bg-white/5 border border-white/5 text-white/90'
+                                                    : isCaller
+                                                        ? 'bg-indigo-500/15 border border-indigo-500/20 text-indigo-100'
+                                                        : 'bg-white/5 border border-white/5 text-white/70'
                                                     }`}
                                             >
                                                 {content}

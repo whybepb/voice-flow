@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.googleLogin = exports.updateOnboarding = exports.getMe = exports.login = exports.register = void 0;
+exports.googleLogin = exports.updateOnboarding = exports.updateSettings = exports.getMe = exports.login = exports.register = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const google_auth_library_1 = require("google-auth-library");
@@ -11,21 +11,21 @@ const prisma_1 = __importDefault(require("../prisma"));
 const errorHandler_1 = require("../middlewares/errorHandler");
 const googleClient = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const generateToken = (id) => {
-    return jsonwebtoken_1.default.sign({ id }, process.env.JWT_SECRET || 'secret', {
-        expiresIn: '30d',
+    return jsonwebtoken_1.default.sign({ id }, process.env.JWT_SECRET || "secret", {
+        expiresIn: "30d",
     });
 };
 const register = async (req, res, next) => {
     try {
         const { name, email, password } = req.body;
         if (!email || !password) {
-            return next(new errorHandler_1.AppError('Please provide email and password', 400));
+            return next(new errorHandler_1.AppError("Please provide email and password", 400));
         }
         const userExists = await prisma_1.default.user.findUnique({
             where: { email },
         });
         if (userExists) {
-            return next(new errorHandler_1.AppError('User already exists', 400));
+            return next(new errorHandler_1.AppError("User already exists", 400));
         }
         const salt = await bcryptjs_1.default.genSalt(10);
         const hashedPassword = await bcryptjs_1.default.hash(password, salt);
@@ -37,7 +37,7 @@ const register = async (req, res, next) => {
             },
         });
         res.status(201).json({
-            status: 'success',
+            status: "success",
             data: {
                 id: user.id,
                 email: user.email,
@@ -56,16 +56,16 @@ const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
-            return next(new errorHandler_1.AppError('Please provide email and password', 400));
+            return next(new errorHandler_1.AppError("Please provide email and password", 400));
         }
         const user = await prisma_1.default.user.findUnique({
             where: { email },
         });
         if (!user || !(await bcryptjs_1.default.compare(password, user.password))) {
-            return next(new errorHandler_1.AppError('Invalid email or password', 401));
+            return next(new errorHandler_1.AppError("Invalid email or password", 401));
         }
         res.status(200).json({
-            status: 'success',
+            status: "success",
             data: {
                 id: user.id,
                 email: user.email,
@@ -92,13 +92,15 @@ const getMe = async (req, res, next) => {
                 role: true,
                 onboardingComplete: true,
                 createdAt: true,
+                agentVoice: true,
+                agentPrompt: true,
             },
         });
         if (!user) {
-            return next(new errorHandler_1.AppError('User not found', 404));
+            return next(new errorHandler_1.AppError("User not found", 404));
         }
         res.status(200).json({
-            status: 'success',
+            status: "success",
             data: user,
         });
     }
@@ -107,11 +109,44 @@ const getMe = async (req, res, next) => {
     }
 };
 exports.getMe = getMe;
+const updateSettings = async (req, res, next) => {
+    try {
+        const { agentVoice, agentPrompt, company, name } = req.body;
+        const user = await prisma_1.default.user.update({
+            where: { id: req.user.id },
+            data: {
+                ...(agentVoice !== undefined && { agentVoice }),
+                ...(agentPrompt !== undefined && { agentPrompt }),
+                ...(company !== undefined && { company }),
+                ...(name !== undefined && { name }),
+            },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                company: true,
+                agentVoice: true,
+                agentPrompt: true,
+            },
+        });
+        res.status(200).json({
+            status: "success",
+            data: user,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+};
+exports.updateSettings = updateSettings;
 const updateOnboarding = async (req, res, next) => {
     try {
-        const { company, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, openaiApiKey } = req.body;
-        if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber || !openaiApiKey) {
-            return next(new errorHandler_1.AppError('Please provide all required credentials', 400));
+        const { company, twilioAccountSid, twilioAuthToken, twilioPhoneNumber, openaiApiKey, } = req.body;
+        if (!twilioAccountSid ||
+            !twilioAuthToken ||
+            !twilioPhoneNumber ||
+            !openaiApiKey) {
+            return next(new errorHandler_1.AppError("Please provide all required credentials", 400));
         }
         const user = await prisma_1.default.user.update({
             where: { id: req.user.id },
@@ -133,7 +168,7 @@ const updateOnboarding = async (req, res, next) => {
             },
         });
         res.status(200).json({
-            status: 'success',
+            status: "success",
             data: user,
         });
     }
@@ -146,7 +181,7 @@ const googleLogin = async (req, res, next) => {
     try {
         const { credential } = req.body;
         if (!credential) {
-            return next(new errorHandler_1.AppError('Google credential is required', 400));
+            return next(new errorHandler_1.AppError("Google credential is required", 400));
         }
         let email;
         let name;
@@ -166,19 +201,19 @@ const googleLogin = async (req, res, next) => {
         }
         catch {
             // Not an ID token — treat as access token and fetch userinfo
-            const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
                 headers: { Authorization: `Bearer ${credential}` },
             });
             if (!userInfoRes.ok) {
-                return next(new errorHandler_1.AppError('Invalid Google credential', 401));
+                return next(new errorHandler_1.AppError("Invalid Google credential", 401));
             }
-            const userInfo = await userInfoRes.json();
+            const userInfo = (await userInfoRes.json());
             email = userInfo.email;
             name = userInfo.name;
             googleId = userInfo.sub;
         }
         if (!email) {
-            return next(new errorHandler_1.AppError('Could not retrieve email from Google', 401));
+            return next(new errorHandler_1.AppError("Could not retrieve email from Google", 401));
         }
         // Find existing user or create new one
         let user = await prisma_1.default.user.findUnique({
@@ -186,7 +221,7 @@ const googleLogin = async (req, res, next) => {
         });
         if (!user) {
             const salt = await bcryptjs_1.default.genSalt(10);
-            const randomPassword = await bcryptjs_1.default.hash(`google_${googleId || 'oauth'}_${Date.now()}`, salt);
+            const randomPassword = await bcryptjs_1.default.hash(`google_${googleId || "oauth"}_${Date.now()}`, salt);
             user = await prisma_1.default.user.create({
                 data: {
                     email,
@@ -196,7 +231,7 @@ const googleLogin = async (req, res, next) => {
             });
         }
         res.status(200).json({
-            status: 'success',
+            status: "success",
             data: {
                 id: user.id,
                 email: user.email,
