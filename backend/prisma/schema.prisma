@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
 }
 
 model User {
@@ -20,10 +22,11 @@ model User {
   onboardingComplete Boolean @default(false)
   role      Role     @default(USER)
   createdAt DateTime @default(now())
-  customers Customer[]
-  campaigns Campaign[]
-  bookings  Booking[]
-  callLogs  CallLog[]
+  customers      Customer[]
+  campaigns      Campaign[]
+  bookings       Booking[]
+  callLogs       CallLog[]
+  knowledgeDocs  KnowledgeDocument[]
 }
 
 model Customer {
@@ -84,6 +87,36 @@ model Campaign {
   @@index([userId])
 }
 
+// ─── RAG Knowledge Base ─────────────────────────────────────────────
+
+model KnowledgeDocument {
+  id          String             @id @default(uuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id])
+  fileName    String
+  fileType    String             // "pdf", "txt"
+  fileSize    Int                // bytes
+  rawContent  String             // full extracted text
+  status      KnowledgeDocStatus @default(PROCESSING)
+  chunkCount  Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  chunks      KnowledgeChunk[]
+  @@index([userId])
+}
+
+model KnowledgeChunk {
+  id          String            @id @default(uuid())
+  documentId  String
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content     String
+  chunkIndex  Int
+  // pgvector column — managed via raw SQL; not directly queryable through Prisma client
+  embedding   Unsupported("vector(1536)")
+  createdAt   DateTime          @default(now())
+  @@index([documentId])
+}
+
 enum Role {
   USER
   ADMIN
@@ -94,4 +127,10 @@ enum BookingStatus {
   CONFIRMED
   RESCHEDULED
   CANCELLED
+}
+
+enum KnowledgeDocStatus {
+  PROCESSING
+  READY
+  FAILED
 }

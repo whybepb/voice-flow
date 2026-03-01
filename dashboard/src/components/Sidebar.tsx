@@ -14,7 +14,8 @@ import {
     LogOut,
     Mic,
     X,
-    FileText
+    FileText,
+    BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -25,6 +26,7 @@ const navigation = [
     { name: 'Customers', href: '/customers', icon: Users },
     { name: 'Call Campaigns', href: '/campaigns', icon: PhoneCall },
     { name: 'Call Logs', href: '/call-logs', icon: FileText },
+    { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];

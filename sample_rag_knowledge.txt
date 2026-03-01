@@ -1,0 +1,27 @@
+Company Overview:
+TechNova Solutions is a leading provider of innovative software products and cloud-based services. We specialize in AI-driven automation, unified communications, and enterprise security. Our mission is to streamline business operations through scalable technology.
+
+Frequently Asked Questions
+
+Q: What are your operating hours?
+A: Our technical support team is available 24/7 for enterprise customers. Regular business hours for sales and billing inquiries are Monday through Friday, 9:00 AM to 6:00 PM EST.
+
+Q: How can I upgrade my subscription plan?
+A: You can upgrade your subscription plan at any time by navigating to your account settings, clicking on 'Billing', and selecting 'Change Plan'. Changes take effect immediately, and you will be billed a prorated amount for the new plan.
+
+Q: Do you offer refunds for unused time?
+A: We do not offer direct refunds for unused time, but if you downgrade your plan, the remaining value will be credited to your account and applied to your next billing cycle.
+
+Q: What is the maximum file size for document uploads on your platform?
+A: The platform allows document uploads up to 50MB per file for standard users, and up to 2GB for enterprise users. We support PDF, DOCX, and TXT formats.
+
+Q: Is your data encrypted?
+A: Yes, all data is encrypted both in transit using TLS 1.3 and at rest using AES-256 encryption. We are also SOC2 Type II and GDPR compliant.
+
+Q: Can I integrate your software with third-party tools?
+A: Absolutely! We offer robust RESTful APIs and pre-built integrations with popular tools like Salesforce, Slack, Hubspot, and Microsoft Teams.
+
+Contact Information:
+For support: support@technovasolutions.demo
+For sales: sales@technovasolutions.demo
+Phone: 1-800-555-0199

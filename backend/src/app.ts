@@ -11,6 +11,7 @@ import webhookRoutes from './routes/webhook.routes';
 import voiceRoutes from './routes/voice.routes';
 import calllogRoutes from './routes/calllogs.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import knowledgeRoutes from './routes/knowledge.routes';
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/webhooks', webhookRoutes);
 app.use('/voice', voiceRoutes);
 app.use('/call-logs', calllogRoutes);
 app.use('/analytics', analyticsRoutes);
+app.use('/knowledge', knowledgeRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

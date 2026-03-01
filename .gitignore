@@ -1,0 +1,10 @@
+/future.md
+uploads/
+.env
+.env.*
+*.log
+backend/**/*.log
+dashboard/**/*.log
+node_modules/
+.next/
+dist/

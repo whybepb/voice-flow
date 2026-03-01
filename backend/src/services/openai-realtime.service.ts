@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import prisma from '../prisma';
+import { searchKnowledge, buildRAGPrompt } from './rag.service';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MAX_RETRY_ATTEMPTS = 3;
@@ -20,6 +21,9 @@ Guidelines:
 - Be concise and conversational — you're on a phone call, not writing an essay.
 - Confirm actions before executing them (e.g., "I'll reschedule your appointment to next Tuesday at 3 PM. Does that work?").
 - If you don't have enough info (e.g., customer name or phone), ask for it politely.
+- When the caller asks about company policies, services, pricing, hours, or other company-specific info, use the search_knowledge tool to look it up.
+- Always cite which document the information came from when using knowledge base results.
+- If you can't find the answer in the knowledge base, say: "I don't have that information available right now. Would you like me to connect you with a human agent who can help?"
 - If you can't help, offer to transfer to a human agent.`;
 
 // Voice setting for the AI
@@ -76,17 +80,45 @@ const TOOLS = [
             required: ['booking_id'],
         },
     },
+    {
+        type: 'function' as const,
+        name: 'search_knowledge',
+        description: 'Search the company knowledge base for information about services, policies, pricing, hours, FAQs, or anything company-specific. Use this when the caller asks a question that might be answered by company documentation.',
+        parameters: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'The search query based on what the caller is asking about',
+                },
+            },
+            required: ['query'],
+        },
+    },
 ];
 
 // ─── Tool Execution ────────────────────────────────────────────────
 
-async function executeToolCall(toolName: string, args: Record<string, any>): Promise<string> {
+/**
+ * Execute a tool call. The userId is needed for RAG search scoping (multi-tenant).
+ */
+async function executeToolCall(
+    toolName: string,
+    args: Record<string, any>,
+    userId?: string,
+): Promise<string> {
     console.log(`[Tool Call] ${toolName}`, args);
 
     switch (toolName) {
         case 'check_booking_status': {
+            if (!userId) {
+                return JSON.stringify({
+                    found: false,
+                    message: 'Unable to check bookings — no user context available. Please offer to connect the caller with a human agent.',
+                });
+            }
             const customer = await prisma.customer.findFirst({
-                where: { phone: args.phone },
+                where: { phone: args.phone, userId },
                 include: {
                     bookings: {
                         orderBy: { appointmentTime: 'desc' },
@@ -112,35 +144,139 @@ async function executeToolCall(toolName: string, args: Record<string, any>): Pro
         }
 
         case 'reschedule_booking': {
+            if (!userId) {
+                return JSON.stringify({
+                    success: false,
+                    error: 'Unable to reschedule — no user context available. Please offer to connect the caller with a human agent.',
+                });
+            }
             try {
-                const updated = await prisma.booking.update({
-                    where: { id: args.booking_id },
+                const result = await prisma.booking.updateMany({
+                    where: { id: args.booking_id, userId },
                     data: {
                         appointmentTime: new Date(args.new_date_time),
                         status: 'RESCHEDULED',
                     },
                 });
-                return JSON.stringify({ success: true, new_time: updated.appointmentTime.toISOString() });
+                if (result.count === 0) {
+                    return JSON.stringify({ success: false, error: 'Booking not found or update failed.' });
+                }
+                return JSON.stringify({ success: true, new_time: args.new_date_time });
             } catch (e) {
                 return JSON.stringify({ success: false, error: 'Booking not found or update failed.' });
             }
         }
 
         case 'cancel_booking': {
+            if (!userId) {
+                return JSON.stringify({
+                    success: false,
+                    error: 'Unable to cancel — no user context available. Please offer to connect the caller with a human agent.',
+                });
+            }
             try {
-                await prisma.booking.update({
-                    where: { id: args.booking_id },
+                const result = await prisma.booking.updateMany({
+                    where: { id: args.booking_id, userId },
                     data: { status: 'CANCELLED' },
                 });
+                if (result.count === 0) {
+                    return JSON.stringify({ success: false, error: 'Booking not found or cancellation failed.' });
+                }
                 return JSON.stringify({ success: true });
             } catch (e) {
                 return JSON.stringify({ success: false, error: 'Booking not found or cancellation failed.' });
             }
         }
 
+        case 'search_knowledge': {
+            if (!userId) {
+                return JSON.stringify({
+                    found: false,
+                    message: 'Unable to search knowledge base — no user context available. Please offer to connect the caller with a human agent.',
+                });
+            }
+
+            try {
+                const results = await searchKnowledge(userId, args.query, 3);
+
+                if (results.length === 0) {
+                    return JSON.stringify({
+                        found: false,
+                        message: 'No relevant information found in the knowledge base. Suggest transferring to a human agent who might be able to help.',
+                    });
+                }
+
+                const ragContext = buildRAGPrompt(args.query, results);
+                return JSON.stringify({
+                    found: true,
+                    answer_context: ragContext.prompt,
+                    sources: ragContext.sources.map((s) => ({
+                        file: s.fileName,
+                        chunk: s.chunkIndex + 1,
+                        relevance: `${(s.similarity * 100).toFixed(1)}%`,
+                    })),
+                });
+            } catch (error) {
+                console.error('[RAG] Search failed during call:', error);
+                return JSON.stringify({
+                    found: false,
+                    message: 'Knowledge base search encountered an error. Offer to connect the caller with a human agent.',
+                });
+            }
+        }
+
         default:
             return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
+}
+
+// ─── Resolve userId from Call Context ──────────────────────────────
+
+/**
+ * Try to resolve the userId from the callSid.
+ * Follows: CallLog (by sid) → Booking → userId
+ * Falls back to checking the phone number of the caller against customers.
+ */
+async function resolveUserId(callSid?: string, calledPhone?: string, callerPhone?: string): Promise<string | undefined> {
+    // Strategy 1: Look up CallLog by SID → get userId directly
+    if (callSid) {
+        const callLog = await prisma.callLog.findUnique({
+            where: { sid: callSid },
+            select: { userId: true },
+        });
+        if (callLog?.userId) {
+            console.log(`[RAG] Resolved userId ${callLog.userId} from callSid ${callSid}`);
+            return callLog.userId;
+        }
+    }
+
+    // Strategy 2: Look up User by called Twilio number → get userId
+    if (calledPhone) {
+        const user = await prisma.user.findFirst({
+            where: { twilioPhoneNumber: calledPhone },
+            select: { id: true },
+        });
+        if (user?.id) {
+            console.log(`[RAG] Resolved userId ${user.id} from called phone ${calledPhone}`);
+            return user.id;
+        }
+    }
+
+    // Strategy 3: Look up Customer by caller phone → get userId
+    if (callerPhone) {
+        const customer = await prisma.customer.findFirst({
+            where: { phone: callerPhone },
+            orderBy: { createdAt: 'desc' },
+            select: { userId: true },
+        });
+        if (customer?.userId) {
+            console.log(`[RAG] Resolved userId ${customer.userId} from caller phone ${callerPhone}`);
+            return customer.userId;
+        }
+    }
+
+    console.warn('[RAG] Could not resolve userId for this call — RAG search will be disabled');
+    return undefined;
 }
 
 // ─── OpenAI Realtime Session Handler ───────────────────────────────
@@ -186,6 +322,9 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
     let callMetadata: { from?: string; to?: string } = {};
     const transcriptParts: string[] = [];
     let isCleanedUp = false;
+
+    // Resolved user ID for RAG search — will be set once we know the caller
+    let resolvedUserId: string | undefined = undefined;
 
     // Promise that resolves once the OpenAI WebSocket is fully open and the
     // session has been configured.  Twilio messages are held until this fires
@@ -288,7 +427,8 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                     } catch { }
 
                     // Execute the tool and send result back to OpenAI
-                    executeToolCall(toolName, toolArgs).then((result) => {
+                    // Pass resolvedUserId for RAG-scoped searches
+                    executeToolCall(toolName, toolArgs, resolvedUserId).then((result) => {
                         // Send the tool output back so the AI can respond
                         const toolResponse = {
                             type: 'conversation.item.create',
@@ -299,6 +439,34 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                             },
                         };
                         openaiWs.send(JSON.stringify(toolResponse));
+
+                        // If this is a knowledge search, inject the context explicitly to guide the response.
+                        if (toolName === 'search_knowledge') {
+                            try {
+                                const parsed = JSON.parse(result);
+                                if (parsed?.found && parsed?.answer_context) {
+                                    const contextMessage = {
+                                        type: 'conversation.item.create',
+                                        item: {
+                                            type: 'message',
+                                            role: 'user',
+                                            content: [
+                                                {
+                                                    type: 'input_text',
+                                                    text:
+                                                        'Use the following knowledge base context to answer the caller. ' +
+                                                        'Do not read it verbatim; summarize clearly and cite the source file if possible.\n\n' +
+                                                        parsed.answer_context,
+                                                },
+                                            ],
+                                        },
+                                    };
+                                    openaiWs.send(JSON.stringify(contextMessage));
+                                }
+                            } catch {
+                                // If parsing fails, fall back to normal response flow.
+                            }
+                        }
 
                         // Tell OpenAI to generate a response using the tool result
                         openaiWs.send(JSON.stringify({ type: 'response.create' }));
@@ -354,6 +522,16 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
                     }
 
                     console.log(`[Twilio] Stream started: ${streamSid}${callSid ? ` (Call SID: ${callSid})` : ''}`);
+
+                    // Resolve userId for RAG search (async, non-blocking)
+                    resolveUserId(callSid, callMetadata.to, callMetadata.from).then((uid) => {
+                        resolvedUserId = uid;
+                        if (uid) {
+                            console.log(`[RAG] User context ready: ${uid}`);
+                        }
+                    }).catch((err) => {
+                        console.error('[RAG] Failed to resolve userId:', err);
+                    });
 
                     // Wait for OpenAI to be fully connected before sending the greeting
                     openaiReady.then(() => {

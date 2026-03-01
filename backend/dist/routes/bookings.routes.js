@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const bookings_controller_1 = require("../controllers/bookings.controller");
+const auth_middleware_1 = require("../middlewares/auth.middleware");
 const router = (0, express_1.Router)();
-router.post('/', bookings_controller_1.createBooking);
-router.get('/', bookings_controller_1.getBookings);
-router.patch('/:id/status', bookings_controller_1.updateBookingStatus);
+router.post('/', auth_middleware_1.authGuard, bookings_controller_1.createBooking);
+router.get('/', auth_middleware_1.authGuard, bookings_controller_1.getBookings);
+router.patch('/:id/status', auth_middleware_1.authGuard, bookings_controller_1.updateBookingStatus);
 exports.default = router;

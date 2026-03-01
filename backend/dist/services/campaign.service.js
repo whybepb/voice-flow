@@ -9,20 +9,21 @@ const client_1 = require("@prisma/client");
 const twilio_service_1 = require("./twilio.service");
 const queue_service_1 = __importDefault(require("./queue.service"));
 exports.CampaignService = {
-    createCampaign: async (name, type, scheduledAt, phoneNumbers) => {
+    createCampaign: async (userId, name, type, scheduledAt, phoneNumbers) => {
         const campaign = await prisma_1.default.campaign.create({
             data: {
                 name,
                 type,
                 scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
                 status: 'DRAFT',
+                userId,
             },
         });
         if (phoneNumbers && phoneNumbers.length > 0) {
             for (const phone of phoneNumbers) {
                 // Find customer by phone
                 let customer = await prisma_1.default.customer.findFirst({
-                    where: { phone }
+                    where: { phone, userId }
                 });
                 // Create customer if it doesn't exist
                 if (!customer) {
@@ -30,6 +31,7 @@ exports.CampaignService = {
                         data: {
                             name: 'Unknown',
                             phone: phone,
+                            userId,
                         }
                     });
                 }
@@ -40,29 +42,38 @@ exports.CampaignService = {
                         campaignId: campaign.id,
                         appointmentTime: scheduledAt ? new Date(scheduledAt) : new Date(),
                         status: 'PENDING',
+                        userId,
                     }
                 });
             }
         }
         return campaign;
     },
-    getAllCampaigns: async () => {
+    getAllCampaigns: async (userId) => {
         return prisma_1.default.campaign.findMany({
+            where: { userId },
             orderBy: { createdAt: 'desc' },
             include: {
-                bookings: true, // You might limit this for performance later
+                bookings: { where: { userId } }, // You might limit this for performance later
             },
         });
     },
-    getCampaignById: async (id) => {
-        return prisma_1.default.campaign.findUnique({
-            where: { id },
-            include: { bookings: true }
+    getCampaignById: async (userId, id) => {
+        return prisma_1.default.campaign.findFirst({
+            where: { id, userId },
+            include: { bookings: { where: { userId } } }
         });
     },
-    startCampaign: async (campaignId) => {
+    startCampaign: async (userId, campaignId) => {
         // 1. Update status to RUNNING
-        const campaign = await prisma_1.default.campaign.update({
+        const campaign = await prisma_1.default.campaign.findFirst({
+            where: { id: campaignId, userId },
+            select: { id: true },
+        });
+        if (!campaign) {
+            return { message: 'Campaign not found', count: 0 };
+        }
+        await prisma_1.default.campaign.update({
             where: { id: campaignId },
             data: { status: 'RUNNING' },
             include: { bookings: true }, // Ideally linking bookings happens before start
@@ -75,6 +86,7 @@ exports.CampaignService = {
             where: {
                 campaignId: campaignId,
                 status: client_1.BookingStatus.PENDING,
+                userId,
             },
             include: { customer: true }
         });
@@ -106,6 +118,7 @@ exports.CampaignService = {
                             bookingId: booking.id,
                             sid: call.sid,
                             callStatus: call.status,
+                            userId,
                         }
                     });
                 }

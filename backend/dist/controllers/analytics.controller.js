@@ -9,13 +9,21 @@ const getDashboardAnalytics = async (req, res, next) => {
     try {
         // Fetch all bookings and call logs in parallel
         const [bookings, callLogs, campaigns] = await Promise.all([
-            prisma_1.default.booking.findMany({ select: { status: true, createdAt: true } }),
-            prisma_1.default.callLog.findMany({ select: { callStatus: true, createdAt: true } }),
+            prisma_1.default.booking.findMany({
+                where: { userId: req.user.id },
+                select: { status: true, createdAt: true },
+            }),
+            prisma_1.default.callLog.findMany({
+                where: { userId: req.user.id },
+                select: { callStatus: true, createdAt: true },
+            }),
             prisma_1.default.campaign.findMany({
+                where: { userId: req.user.id },
                 select: {
                     id: true,
                     status: true,
                     bookings: {
+                        where: { userId: req.user.id },
                         select: { id: true, status: true, lastCallStatus: true },
                     },
                 },

@@ -8,6 +8,7 @@ const prisma_1 = __importDefault(require("../prisma"));
 const getCallLogs = async (req, res, next) => {
     try {
         const callLogs = await prisma_1.default.callLog.findMany({
+            where: { userId: req.user.id },
             include: {
                 booking: {
                     include: {
@@ -36,8 +37,8 @@ exports.getCallLogs = getCallLogs;
 const getCallLogById = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const callLog = await prisma_1.default.callLog.findUnique({
-            where: { id },
+        const callLog = await prisma_1.default.callLog.findFirst({
+            where: { id, userId: req.user.id },
             include: {
                 booking: {
                     include: {

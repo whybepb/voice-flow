@@ -15,6 +15,7 @@ const webhook_routes_1 = __importDefault(require("./routes/webhook.routes"));
 const voice_routes_1 = __importDefault(require("./routes/voice.routes"));
 const calllogs_routes_1 = __importDefault(require("./routes/calllogs.routes"));
 const analytics_routes_1 = __importDefault(require("./routes/analytics.routes"));
+const knowledge_routes_1 = __importDefault(require("./routes/knowledge.routes"));
 const app = (0, express_1.default)();
 // Global Middlewares
 app.use((0, cors_1.default)());
@@ -32,6 +33,7 @@ app.use('/webhooks', webhook_routes_1.default);
 app.use('/voice', voice_routes_1.default);
 app.use('/call-logs', calllogs_routes_1.default);
 app.use('/analytics', analytics_routes_1.default);
+app.use('/knowledge', knowledge_routes_1.default);
 // Health Check
 app.get('/', (req, res) => {
     res.send('API is running...');

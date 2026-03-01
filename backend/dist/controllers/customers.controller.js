@@ -17,6 +17,7 @@ const createCustomer = async (req, res, next) => {
                 name,
                 phone,
                 email,
+                userId: req.user.id,
             },
         });
         res.status(201).json({
@@ -34,8 +35,9 @@ exports.createCustomer = createCustomer;
 const getCustomers = async (req, res, next) => {
     try {
         const customers = await prisma_1.default.customer.findMany({
+            where: { userId: req.user.id },
             include: {
-                bookings: true,
+                bookings: { where: { userId: req.user.id } },
             },
             orderBy: {
                 createdAt: 'desc',
