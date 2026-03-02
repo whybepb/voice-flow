@@ -6,8 +6,12 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { parse } from 'url';
 import app from './app';
 import { handleMediaStream } from './services/openai-realtime.service';
+import { backgroundJobService } from './services/background-job.service';
+import { registerBackgroundJobHandlers } from './services/background-job-handlers';
+import { assertSecretEncryptionConfigured } from './utils/secret-crypto';
 
 const PORT = process.env.PORT || 5001;
+assertSecretEncryptionConfigured();
 
 // Create an HTTP server from the Express app
 const server = http.createServer(app);
@@ -36,6 +40,16 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 server.listen(PORT, () => {
+    registerBackgroundJobHandlers();
+    backgroundJobService.startWorker();
     console.log(`Server is running on port ${PORT}`);
     console.log(`WebSocket endpoint ready at ws://localhost:${PORT}/media-stream`);
+});
+
+process.on('SIGTERM', () => {
+    backgroundJobService.stopWorker();
+});
+
+process.on('SIGINT', () => {
+    backgroundJobService.stopWorker();
 });

@@ -1,18 +1,8 @@
 import WebSocket from "ws";
 import prisma from "../prisma";
 import { searchKnowledge, buildRAGPrompt } from "./rag.service";
-import OpenAI from "openai";
-
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_DELAY_MS = 1000;
-
-// Validate API key at module load
-if (!OPENAI_API_KEY || OPENAI_API_KEY === "your_openai_api_key") {
-  console.warn(
-    "[OpenAI] ⚠️  OPENAI_API_KEY is not set or is a placeholder. AI voice calls will not work.",
-  );
-}
+import { decryptSecret } from "../utils/secret-crypto";
+import { enqueuePostCallAnalysisJob } from "./background-job-handlers";
 
 // System prompt that defines the AI agent's personality and capabilities
 const SYSTEM_MESSAGE = `You are a friendly, professional AI voice assistant for a business. Your job is to help callers with:
@@ -546,9 +536,16 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
               }
 
               const user = uid
-                ? await prisma.user.findUnique({ where: { id: uid } })
+                ? await prisma.user.findUnique({
+                    where: { id: uid },
+                    select: {
+                      openaiApiKey: true,
+                      agentVoice: true,
+                      agentPrompt: true,
+                    },
+                  })
                 : null;
-              const apiKey = user?.openaiApiKey;
+              const apiKey = decryptSecret(user?.openaiApiKey);
               if (!apiKey) {
                 console.error("[OpenAI] No user API key; closing call");
                 twilioWs.close();
@@ -648,60 +645,16 @@ async function saveTranscript(callSid: string | undefined, transcript: string) {
   try {
     const callLog = await prisma.callLog.findUnique({
       where: { sid: callSid },
-      include: { user: { select: { openaiApiKey: true } } },
+      select: { userId: true },
     });
 
     if (callLog) {
-      let summary = null;
-      let sentiment = null;
-      let actionItems = null;
-
-      const userApiKey = callLog.user?.openaiApiKey;
-      if (userApiKey) {
-        try {
-          const completion = await new OpenAI({ apiKey: userApiKey }).chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You analyze call transcripts. Extract exactly 3 fields: summary (1-2 sentences), sentiment (Positive/Neutral/Negative/etc), and actionItems (bulleted string or 'None'). Return valid JSON only.",
-              },
-              { role: "user", content: `Transcript:\n${transcript}` },
-            ],
-            response_format: {
-              type: "json_schema",
-              json_schema: {
-                name: "post_call_analysis",
-                schema: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    summary: { type: "string" },
-                    sentiment: { type: "string" },
-                    actionItems: { type: "string" },
-                  },
-                  required: ["summary", "sentiment", "actionItems"],
-                },
-              },
-            },
-          });
-          const parsed = JSON.parse(
-            completion.choices[0].message.content || "{}",
-          );
-          summary = parsed.summary;
-          sentiment = parsed.sentiment;
-          actionItems = parsed.actionItems;
-        } catch (e) {
-          console.error("[Transcript] Failed to generate AI summary", e);
-        }
-      }
-
       await prisma.callLog.update({
         where: { sid: callSid },
-        data: { transcript, summary, sentiment, actionItems },
+        data: { transcript },
       });
-      console.log(`[Transcript] Saved for call ${callSid} with AI summary`);
+      await enqueuePostCallAnalysisJob(callLog.userId, callSid);
+      console.log(`[Transcript] Saved and queued post-call analysis for ${callSid}`);
     } else {
       console.warn(`[Transcript] No CallLog found for SID ${callSid}`);
     }

@@ -9,6 +9,8 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const google_auth_library_1 = require("google-auth-library");
 const prisma_1 = __importDefault(require("../prisma"));
 const errorHandler_1 = require("../middlewares/errorHandler");
+const secret_crypto_1 = require("../utils/secret-crypto");
+const user_secrets_service_1 = require("../services/user-secrets.service");
 const googleClient = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const generateToken = (id) => {
     return jsonwebtoken_1.default.sign({ id }, process.env.JWT_SECRET || "secret", {
@@ -99,9 +101,13 @@ const getMe = async (req, res, next) => {
         if (!user) {
             return next(new errorHandler_1.AppError("User not found", 404));
         }
+        const credentialStatus = await (0, user_secrets_service_1.getRedactedCredentialStatus)(req.user.id);
         res.status(200).json({
             status: "success",
-            data: user,
+            data: {
+                ...user,
+                credentialStatus,
+            },
         });
     }
     catch (error) {
@@ -152,10 +158,10 @@ const updateOnboarding = async (req, res, next) => {
             where: { id: req.user.id },
             data: {
                 company: company || null,
-                twilioAccountSid,
-                twilioAuthToken,
+                twilioAccountSid: (0, secret_crypto_1.encryptSecret)(twilioAccountSid),
+                twilioAuthToken: (0, secret_crypto_1.encryptSecret)(twilioAuthToken),
                 twilioPhoneNumber,
-                openaiApiKey,
+                openaiApiKey: (0, secret_crypto_1.encryptSecret)(openaiApiKey),
                 onboardingComplete: true,
             },
             select: {

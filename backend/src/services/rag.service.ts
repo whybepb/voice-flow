@@ -5,6 +5,7 @@ import { generateEmbedding, generateEmbeddings } from './embedding.service';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import OpenAI from 'openai';
+import { getUserOpenAIKey } from './user-secrets.service';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -22,14 +23,6 @@ export interface RAGContext {
     sources: { fileName: string; chunkIndex: number; similarity: number }[];
 }
 
-async function getUserOpenAIKey(userId: string): Promise<string | null> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { openaiApiKey: true },
-    });
-    return user?.openaiApiKey || null;
-}
-
 // ─── Document Ingestion ─────────────────────────────────────────────
 
 /**
@@ -42,6 +35,7 @@ export async function ingestDocument(
     filePath: string,
 ): Promise<void> {
     let rawContent = '';
+    let shouldDeleteFile = false;
     try {
         console.log(`[RAG] Starting ingestion for document ${documentId}`);
 
@@ -58,6 +52,7 @@ export async function ingestDocument(
                 where: { id: documentId },
                 data: { status: 'FAILED', rawContent: rawContent || 'Empty document' },
             });
+            shouldDeleteFile = true;
             return;
         }
 
@@ -68,6 +63,7 @@ export async function ingestDocument(
                 where: { id: documentId },
                 data: { status: 'FAILED', rawContent },
             });
+            shouldDeleteFile = true;
             return;
         }
         const texts = chunks.map((c) => c.content);
@@ -94,18 +90,16 @@ export async function ingestDocument(
                 chunkCount: chunks.length,
             },
         });
+        shouldDeleteFile = true;
 
         console.log(`[RAG] ✅ Document ${documentId} ingested successfully (${chunks.length} chunks)`);
     } catch (error) {
         console.error(`[RAG] ❌ Ingestion failed for document ${documentId}:`, error);
-
-        // Mark document as failed
-        await prisma.knowledgeDocument.update({
-            where: { id: documentId },
-            data: { status: 'FAILED' },
-        }).catch(() => { }); // swallow if the doc itself was deleted
+        throw error;
     } finally {
-        await fs.unlink(filePath).catch(() => { });
+        if (shouldDeleteFile) {
+            await fs.unlink(filePath).catch(() => { });
+        }
     }
 }
 

@@ -5,12 +5,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TwilioService = void 0;
 const twilio_1 = __importDefault(require("twilio"));
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const client = (0, twilio_1.default)(accountSid, authToken);
+function getTwilioClient(config) {
+    return (0, twilio_1.default)(config.accountSid, config.authToken);
+}
+function shouldMockTwilio() {
+    return process.env.MOCK_TWILIO === 'true';
+}
 exports.TwilioService = {
-    makeCall: async (to, from, url, statusCallbackUrl) => {
+    makeCall: async (config, to, from, url, statusCallbackUrl) => {
         try {
+            if (shouldMockTwilio()) {
+                return {
+                    sid: `MOCK_CALL_${Date.now()}`,
+                    status: 'queued',
+                    to,
+                    from,
+                    url,
+                };
+            }
+            const client = getTwilioClient(config);
             const call = await client.calls.create({
                 url,
                 to,
@@ -28,8 +41,18 @@ exports.TwilioService = {
             throw error;
         }
     },
-    sendSMS: async (to, from, body) => {
+    sendSMS: async (config, to, from, body) => {
         try {
+            if (shouldMockTwilio()) {
+                return {
+                    sid: `MOCK_SMS_${Date.now()}`,
+                    status: 'queued',
+                    to,
+                    from,
+                    body,
+                };
+            }
+            const client = getTwilioClient(config);
             const message = await client.messages.create({
                 body,
                 from,

@@ -29,6 +29,7 @@ model User {
   bookings       Booking[]
   callLogs       CallLog[]
   knowledgeDocs  KnowledgeDocument[]
+  backgroundJobs BackgroundJob[]
 }
 
 model Customer {
@@ -137,5 +138,38 @@ enum BookingStatus {
 enum KnowledgeDocStatus {
   PROCESSING
   READY
+  FAILED
+}
+
+model BackgroundJob {
+  id          String          @id @default(uuid())
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type        BackgroundJobType
+  status      BackgroundJobStatus @default(PENDING)
+  payload     Json
+  attempts    Int             @default(0)
+  maxAttempts Int             @default(3)
+  runAt       DateTime        @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  lastError   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status, runAt])
+  @@index([userId, type])
+}
+
+enum BackgroundJobType {
+  KNOWLEDGE_INGEST
+  POST_CALL_ANALYSIS
+}
+
+enum BackgroundJobStatus {
+  PENDING
+  PROCESSING
+  RETRY
+  COMPLETED
   FAILED
 }

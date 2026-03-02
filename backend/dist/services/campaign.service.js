@@ -8,8 +8,38 @@ const prisma_1 = __importDefault(require("../prisma")); // Adjust import based o
 const client_1 = require("@prisma/client");
 const twilio_service_1 = require("./twilio.service");
 const queue_service_1 = __importDefault(require("./queue.service"));
+const user_secrets_service_1 = require("./user-secrets.service");
+function normalizePhoneNumber(value) {
+    let candidate = value.trim().replace(/[\s\-().]/g, '');
+    if (!candidate)
+        return null;
+    if (candidate.startsWith('00')) {
+        candidate = `+${candidate.slice(2)}`;
+    }
+    if (!candidate.startsWith('+')) {
+        if (/^\d{10}$/.test(candidate)) {
+            candidate = `+1${candidate}`;
+        }
+        else if (/^\d{11,15}$/.test(candidate)) {
+            candidate = `+${candidate}`;
+        }
+        else {
+            return null;
+        }
+    }
+    if (!/^\+[1-9]\d{7,14}$/.test(candidate)) {
+        return null;
+    }
+    return candidate;
+}
 exports.CampaignService = {
     createCampaign: async (userId, name, type, scheduledAt, phoneNumbers) => {
+        const normalizedPhones = Array.from(new Set((phoneNumbers || [])
+            .map((phone) => normalizePhoneNumber(phone))
+            .filter((phone) => Boolean(phone))));
+        if ((phoneNumbers?.length || 0) > 0 && normalizedPhones.length === 0) {
+            throw new Error('No valid phone numbers found. Use E.164 format (e.g., +14155552671).');
+        }
         const campaign = await prisma_1.default.campaign.create({
             data: {
                 name,
@@ -19,8 +49,8 @@ exports.CampaignService = {
                 userId,
             },
         });
-        if (phoneNumbers && phoneNumbers.length > 0) {
-            for (const phone of phoneNumbers) {
+        if (normalizedPhones.length > 0) {
+            for (const phone of normalizedPhones) {
                 // Find customer by phone
                 let customer = await prisma_1.default.customer.findFirst({
                     where: { phone, userId }
@@ -96,6 +126,10 @@ exports.CampaignService = {
             await prisma_1.default.campaign.update({ where: { id: campaignId }, data: { status: 'COMPLETED' } });
             return { message: 'No bookings to process', count: 0 };
         }
+        const twilioCreds = await (0, user_secrets_service_1.getUserTwilioCredentials)(userId);
+        if (!twilioCreds) {
+            throw new Error('Twilio credentials are not configured for this account.');
+        }
         // 2. Queue calls
         bookingsToCall.forEach((booking) => {
             queue_service_1.default.addJob(async () => {
@@ -106,7 +140,10 @@ exports.CampaignService = {
                     const baseUrl = process.env.BASE_URL || 'http://localhost:5001';
                     const twimlUrl = `${baseUrl}/voice/outbound`;
                     const statusCallbackUrl = `${baseUrl}/webhooks/twilio`;
-                    const call = await twilio_service_1.TwilioService.makeCall(booking.customer.phone, process.env.TWILIO_PHONE_NUMBER, twimlUrl, statusCallbackUrl);
+                    const call = await twilio_service_1.TwilioService.makeCall({
+                        accountSid: twilioCreds.accountSid,
+                        authToken: twilioCreds.authToken,
+                    }, booking.customer.phone, twilioCreds.phoneNumber, twimlUrl, statusCallbackUrl);
                     // Update Booking Status
                     await prisma_1.default.booking.update({
                         where: { id: booking.id },

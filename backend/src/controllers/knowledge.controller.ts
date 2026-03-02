@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import path from 'path';
-import fs from 'fs';
 import prisma from '../prisma';
 import { AppError } from '../middlewares/errorHandler';
+import { getUserOpenAIKey } from '../services/user-secrets.service';
+import { enqueueKnowledgeIngestJob } from '../services/background-job-handlers';
 import {
-    ingestDocument,
     searchKnowledge,
     buildRAGPrompt,
     generateRAGAnswer,
@@ -37,10 +37,8 @@ export const uploadKnowledge = async (req: Request, res: Response, next: NextFun
             },
         });
 
-        // Fire-and-forget: ingest in background so API responds fast
-        ingestDocument(userId, document.id, file.path).catch((err) => {
-            console.error(`[Knowledge] Background ingestion failed:`, err);
-        });
+        // Enqueue ingestion as a tracked background job.
+        await enqueueKnowledgeIngestJob(userId, document.id, file.path);
 
         res.status(201).json({
             status: 'success',
@@ -129,12 +127,9 @@ export const queryKnowledge = async (req: Request, res: Response, next: NextFunc
 
         let answer: string | undefined = undefined;
         if (generateAnswer) {
-            const user = await prisma.user.findUnique({
-                where: { id: req.user!.id },
-                select: { openaiApiKey: true },
-            });
-            if (user?.openaiApiKey) {
-                answer = await generateRAGAnswer(ragContext.prompt, user.openaiApiKey);
+            const apiKey = await getUserOpenAIKey(req.user!.id);
+            if (apiKey) {
+                answer = await generateRAGAnswer(ragContext.prompt, apiKey);
             }
         }
 

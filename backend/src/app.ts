@@ -13,6 +13,7 @@ import calllogRoutes from './routes/calllogs.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import knowledgeRoutes from './routes/knowledge.routes';
 import searchRoutes from './routes/search.routes';
+import jobsRoutes from './routes/jobs.routes';
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use('/call-logs', calllogRoutes);
 app.use('/analytics', analyticsRoutes);
 app.use('/knowledge', knowledgeRoutes);
 app.use('/search', searchRoutes);
+app.use('/jobs', jobsRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

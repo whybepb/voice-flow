@@ -2,9 +2,45 @@ import prisma from '../prisma'; // Adjust import based on your structure
 import { BookingStatus } from '@prisma/client';
 import { TwilioService } from './twilio.service';
 import QueueService from './queue.service';
+import { getUserTwilioCredentials } from './user-secrets.service';
+
+function normalizePhoneNumber(value: string): string | null {
+    let candidate = value.trim().replace(/[\s\-().]/g, '');
+    if (!candidate) return null;
+
+    if (candidate.startsWith('00')) {
+        candidate = `+${candidate.slice(2)}`;
+    }
+
+    if (!candidate.startsWith('+')) {
+        if (/^\d{10}$/.test(candidate)) {
+            candidate = `+1${candidate}`;
+        } else if (/^\d{11,15}$/.test(candidate)) {
+            candidate = `+${candidate}`;
+        } else {
+            return null;
+        }
+    }
+
+    if (!/^\+[1-9]\d{7,14}$/.test(candidate)) {
+        return null;
+    }
+
+    return candidate;
+}
 
 export const CampaignService = {
     createCampaign: async (userId: string, name: string, type: string, scheduledAt?: string, phoneNumbers?: string[]) => {
+        const normalizedPhones = Array.from(new Set(
+            (phoneNumbers || [])
+                .map((phone) => normalizePhoneNumber(phone))
+                .filter((phone): phone is string => Boolean(phone))
+        ));
+
+        if ((phoneNumbers?.length || 0) > 0 && normalizedPhones.length === 0) {
+            throw new Error('No valid phone numbers found. Use E.164 format (e.g., +14155552671).');
+        }
+
         const campaign = await prisma.campaign.create({
             data: {
                 name,
@@ -15,8 +51,8 @@ export const CampaignService = {
             },
         });
 
-        if (phoneNumbers && phoneNumbers.length > 0) {
-            for (const phone of phoneNumbers) {
+        if (normalizedPhones.length > 0) {
+            for (const phone of normalizedPhones) {
                 // Find customer by phone
                 let customer = await prisma.customer.findFirst({
                     where: { phone, userId }
@@ -104,6 +140,11 @@ export const CampaignService = {
             return { message: 'No bookings to process', count: 0 };
         }
 
+        const twilioCreds = await getUserTwilioCredentials(userId);
+        if (!twilioCreds) {
+            throw new Error('Twilio credentials are not configured for this account.');
+        }
+
         // 2. Queue calls
         bookingsToCall.forEach((booking) => {
             QueueService.addJob(async () => {
@@ -117,8 +158,12 @@ export const CampaignService = {
                     const statusCallbackUrl = `${baseUrl}/webhooks/twilio`;
 
                     const call = await TwilioService.makeCall(
+                        {
+                            accountSid: twilioCreds.accountSid,
+                            authToken: twilioCreds.authToken,
+                        },
                         booking.customer.phone,
-                        process.env.TWILIO_PHONE_NUMBER as string,
+                        twilioCreds.phoneNumber,
                         twimlUrl,
                         statusCallbackUrl
                     );

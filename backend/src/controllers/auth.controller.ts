@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import prisma from "../prisma";
 import { AppError } from "../middlewares/errorHandler";
+import { encryptSecret } from "../utils/secret-crypto";
+import { getRedactedCredentialStatus } from "../services/user-secrets.service";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -119,9 +121,14 @@ export const getMe = async (
       return next(new AppError("User not found", 404));
     }
 
+    const credentialStatus = await getRedactedCredentialStatus(req.user!.id);
+
     res.status(200).json({
       status: "success",
-      data: user,
+      data: {
+        ...user,
+        credentialStatus,
+      },
     });
   } catch (error) {
     next(error);
@@ -190,10 +197,10 @@ export const updateOnboarding = async (
       where: { id: req.user!.id },
       data: {
         company: company || null,
-        twilioAccountSid,
-        twilioAuthToken,
+        twilioAccountSid: encryptSecret(twilioAccountSid),
+        twilioAuthToken: encryptSecret(twilioAuthToken),
         twilioPhoneNumber,
-        openaiApiKey,
+        openaiApiKey: encryptSecret(openaiApiKey),
         onboardingComplete: true,
       },
       select: {
