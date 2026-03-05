@@ -1,12 +1,23 @@
 'use client';
 
 import React from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 interface HeaderProps {
     onMenuToggle: () => void;
 }
 
 export default function Header({ onMenuToggle }: HeaderProps) {
+    const { user } = useAuth();
+    const displayName = user?.name?.trim() || user?.email?.split('@')[0] || 'User';
+    const displayRole = user?.role || 'USER';
+    const initials = displayName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') || 'U';
+
     return (
         <header className="sticky top-0 z-30 flex items-center justify-between h-[72px] px-6 lg:px-8 bg-header/90 backdrop-blur-xl border-b border-border">
             {/* Left side */}
@@ -49,11 +60,11 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 {/* User */}
                 <button className="flex items-center gap-3 py-1.5 px-2 rounded-xl hover:bg-card cursor-pointer transition-colors">
                     <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-violet-500/20 flex-shrink-0">
-                        PB
+                        {initials}
                     </div>
                     <div className="hidden md:block text-left">
-                        <p className="text-[13px] font-semibold text-foreground leading-tight">Prathmesh</p>
-                        <p className="text-[11px] text-muted leading-tight">Admin</p>
+                        <p className="text-[13px] font-semibold text-foreground leading-tight">{displayName}</p>
+                        <p className="text-[11px] text-muted leading-tight">{displayRole}</p>
                     </div>
                 </button>
             </div>
