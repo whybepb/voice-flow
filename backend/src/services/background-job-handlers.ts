@@ -1,7 +1,11 @@
 import { BackgroundJobType, Prisma } from "@prisma/client";
 import { backgroundJobService } from "./background-job.service";
-import { ingestDocument } from "./rag.service";
+import {
+  ingestDocument,
+  reindexDocumentFromStoredContent,
+} from "./rag.service";
 import { runPostCallAnalysis } from "./post-call-analysis.service";
+import { processCampaignCallJob } from "./campaign.service";
 
 interface KnowledgeIngestPayload {
   userId: string;
@@ -11,6 +15,16 @@ interface KnowledgeIngestPayload {
 
 interface PostCallAnalysisPayload {
   callSid: string;
+}
+
+interface KnowledgeReindexPayload {
+  documentId: string;
+}
+
+interface CampaignCallPayload {
+  campaignId: string;
+  bookingId: string;
+  userId: string;
 }
 
 let handlersRegistered = false;
@@ -60,6 +74,30 @@ export function registerBackgroundJobHandlers() {
       await runPostCallAnalysis(parsed.callSid);
     },
   );
+
+  backgroundJobService.registerHandler(
+    BackgroundJobType.KNOWLEDGE_REINDEX,
+    async (payload) => {
+      const raw = asObject(payload);
+      const parsed: KnowledgeReindexPayload = {
+        documentId: requireString(raw, "documentId"),
+      };
+      await reindexDocumentFromStoredContent(parsed.documentId);
+    },
+  );
+
+  backgroundJobService.registerHandler(
+    BackgroundJobType.CAMPAIGN_CALL,
+    async (payload) => {
+      const raw = asObject(payload);
+      const parsed: CampaignCallPayload = {
+        campaignId: requireString(raw, "campaignId"),
+        bookingId: requireString(raw, "bookingId"),
+        userId: requireString(raw, "userId"),
+      };
+      await processCampaignCallJob(parsed.userId, parsed.campaignId, parsed.bookingId);
+    },
+  );
 }
 
 export async function enqueueKnowledgeIngestJob(
@@ -83,6 +121,18 @@ export async function enqueuePostCallAnalysisJob(
     userId,
     type: BackgroundJobType.POST_CALL_ANALYSIS,
     payload: { callSid },
+    maxAttempts: 3,
+  });
+}
+
+export async function enqueueKnowledgeReindexJob(
+  userId: string,
+  documentId: string,
+) {
+  await backgroundJobService.enqueue({
+    userId,
+    type: BackgroundJobType.KNOWLEDGE_REINDEX,
+    payload: { documentId },
     maxAttempts: 3,
   });
 }

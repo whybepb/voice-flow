@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma';
 import { AppError } from './errorHandler';
+import { getJwtSecret } from '../utils/runtime-config';
 
 // Extend Express Request to include user
 declare global {
@@ -28,7 +29,7 @@ export const authGuard = async (req: Request, res: Response, next: NextFunction)
             return next(new AppError('Not authorized, no token provided', 401));
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { id: string };
+        const decoded = jwt.verify(token, getJwtSecret()) as { id: string };
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },

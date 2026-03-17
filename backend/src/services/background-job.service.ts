@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 import prisma from "../prisma";
 import fs from "node:fs/promises";
+import { finalizeCampaignDispatchIfIdle } from "./campaign.service";
 
 type JobHandler = (payload: Prisma.JsonValue) => Promise<void>;
 
@@ -36,7 +37,7 @@ function payloadField(
   return typeof value === "string" ? value : undefined;
 }
 
-async function cleanupFailedKnowledgeIngest(payload: Prisma.JsonValue) {
+async function cleanupFailedKnowledgeJob(payload: Prisma.JsonValue) {
   const filePath = payloadField(payload, "filePath");
   const documentId = payloadField(payload, "documentId");
 
@@ -238,8 +239,11 @@ class BackgroundJobService {
           },
         });
       } else {
-        if (job.type === BackgroundJobType.KNOWLEDGE_INGEST) {
-          await cleanupFailedKnowledgeIngest(job.payload);
+        if (
+          job.type === BackgroundJobType.KNOWLEDGE_INGEST ||
+          job.type === BackgroundJobType.KNOWLEDGE_REINDEX
+        ) {
+          await cleanupFailedKnowledgeJob(job.payload);
         }
         await prisma.backgroundJob.update({
           where: { id: job.id },
@@ -249,8 +253,12 @@ class BackgroundJobService {
             lastError: toErrorMessage(error),
           },
         });
+        await this.runCompletionHooks(job);
       }
+      return;
     }
+
+    await this.runCompletionHooks(job);
   }
 
   private warnMissingTable() {
@@ -259,6 +267,18 @@ class BackgroundJobService {
     console.warn(
       "[Jobs] BackgroundJob table is missing. Run Prisma migration/db push to enable persisted job queue.",
     );
+  }
+
+  private async runCompletionHooks(job: {
+    id: string;
+    type: BackgroundJobType;
+    payload: Prisma.JsonValue;
+  }) {
+    if (job.type === BackgroundJobType.CAMPAIGN_CALL) {
+      await finalizeCampaignDispatchIfIdle(job.payload).catch((error) => {
+        console.error("[Jobs] Failed to finalize campaign state:", error);
+      });
+    }
   }
 }
 

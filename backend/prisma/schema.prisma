@@ -163,7 +163,9 @@ model BackgroundJob {
 
 enum BackgroundJobType {
   KNOWLEDGE_INGEST
+  KNOWLEDGE_REINDEX
   POST_CALL_ANALYSIS
+  CAMPAIGN_CALL
 }
 
 enum BackgroundJobStatus {

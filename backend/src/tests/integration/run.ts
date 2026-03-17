@@ -125,6 +125,24 @@ async function waitForKnowledgeStatus(
   throw new Error(`Timed out waiting for knowledge doc ${documentId} to reach ${expectedStatus}`);
 }
 
+async function waitForCampaignStatus(
+  baseUrl: string,
+  token: string,
+  campaignId: string,
+  expectedStatus: string,
+  timeoutMs = 30000,
+) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const campaignsRes = await requestJson(baseUrl, "/campaigns", { method: "GET" }, token);
+    assert.equal(campaignsRes.status, 200, "campaign list should return 200");
+    const campaign = (campaignsRes.body.campaigns || []).find((item: any) => item.id === campaignId);
+    if (campaign?.status === expectedStatus) return campaign;
+    await sleep(1000);
+  }
+  throw new Error(`Timed out waiting for campaign ${campaignId} to reach ${expectedStatus}`);
+}
+
 async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required for integration tests");
@@ -179,6 +197,41 @@ async function main() {
     );
     assert.equal(startRes.status, 200, "campaign start should return 200");
     assert.ok(startRes.body?.count >= 1, "campaign start should enqueue at least one call");
+    await waitForCampaignStatus(baseUrl, user1.token, campaignId, "COMPLETED");
+
+    const callLogsRes = await requestJson(baseUrl, "/call-logs", { method: "GET" }, user1.token);
+    assert.equal(callLogsRes.status, 200, "call logs should return 200");
+    const firstCallLog = callLogsRes.body?.data?.callLogs?.[0];
+    assert.ok(firstCallLog?.sid, "campaign dispatch should create a call log");
+
+    const webhookRes = await requestJson(
+      baseUrl,
+      "/webhooks/twilio",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          CallSid: firstCallLog.sid,
+          CallStatus: "completed",
+        }),
+      },
+    );
+    assert.equal(webhookRes.status, 200, "webhook should return 200");
+
+    const bookingsAfterWebhook = await requestJson(baseUrl, "/bookings", { method: "GET" }, user1.token);
+    assert.equal(bookingsAfterWebhook.status, 200, "bookings list should return 200");
+    const webhookBooking = (bookingsAfterWebhook.body?.data?.bookings || []).find(
+      (item: any) => item.id === firstCallLog.bookingId,
+    );
+    assert.equal(
+      webhookBooking?.status,
+      "PENDING",
+      "Twilio delivery status must not overwrite appointment status",
+    );
+    assert.equal(
+      webhookBooking?.lastCallStatus,
+      "completed",
+      "Twilio delivery status should still be tracked on the booking",
+    );
 
     console.log("[integration] Running knowledge upload/query flow...");
     const docId = await uploadKnowledgeDoc(
@@ -207,6 +260,15 @@ async function main() {
       (queryRes.body?.data?.results || []).length > 0,
       "knowledge query should return at least one chunk",
     );
+
+    const reindexRes = await requestJson(
+      baseUrl,
+      `/knowledge/${docId}/reindex`,
+      { method: "POST" },
+      user1.token,
+    );
+    assert.equal(reindexRes.status, 200, "knowledge reindex should return 200");
+    await waitForKnowledgeStatus(baseUrl, user1.token, docId, "READY");
 
     console.log("[integration] Running tenant isolation checks...");
     const user2 = await registerAndOnboard(baseUrl, "b");

@@ -346,6 +346,7 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
   let streamSid: string | null = null;
   let callMetadata: { from?: string; to?: string } = {};
   const transcriptParts: string[] = [];
+  const pendingAudioFrames: string[] = [];
   let isCleanedUp = false;
 
   // Resolved user ID for RAG search — will be set once we know the caller
@@ -580,6 +581,17 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
               };
               safeSend(JSON.stringify(sessionUpdate));
 
+              while (pendingAudioFrames.length > 0) {
+                const audio = pendingAudioFrames.shift();
+                if (!audio) continue;
+                safeSend(
+                  JSON.stringify({
+                    type: "input_audio_buffer.append",
+                    audio,
+                  }),
+                );
+              }
+
               // Now send initial greeting
               const initialEvent = {
                 type: "conversation.item.create",
@@ -610,6 +622,8 @@ export function handleMediaStream(twilioWs: WebSocket, callSid?: string) {
               audio: data.media.payload, // base64 µ-law audio
             };
             openaiWs.send(JSON.stringify(audioAppend));
+          } else if (data.media?.payload && pendingAudioFrames.length < 200) {
+            pendingAudioFrames.push(data.media.payload);
           }
           break;
 

@@ -4,10 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CampaignService = void 0;
+exports.processCampaignCallJob = processCampaignCallJob;
+exports.finalizeCampaignDispatchIfIdle = finalizeCampaignDispatchIfIdle;
 const prisma_1 = __importDefault(require("../prisma")); // Adjust import based on your structure
 const client_1 = require("@prisma/client");
 const twilio_service_1 = require("./twilio.service");
-const queue_service_1 = __importDefault(require("./queue.service"));
 const user_secrets_service_1 = require("./user-secrets.service");
 function normalizePhoneNumber(value) {
     let candidate = value.trim().replace(/[\s\-().]/g, '');
@@ -116,6 +117,7 @@ exports.CampaignService = {
             where: {
                 campaignId: campaignId,
                 status: client_1.BookingStatus.PENDING,
+                lastCallStatus: null,
                 userId,
             },
             include: { customer: true }
@@ -131,43 +133,115 @@ exports.CampaignService = {
             throw new Error('Twilio credentials are not configured for this account.');
         }
         // 2. Queue calls
-        bookingsToCall.forEach((booking) => {
-            queue_service_1.default.addJob(async () => {
-                console.log(`Processing booking ${booking.id} for customer ${booking.customer.phone}`);
-                try {
-                    // Call Twilio
-                    // The TwiML URL tells Twilio to connect the call to our WebSocket media stream
-                    const baseUrl = process.env.BASE_URL || 'http://localhost:5001';
-                    const twimlUrl = `${baseUrl}/voice/outbound`;
-                    const statusCallbackUrl = `${baseUrl}/webhooks/twilio`;
-                    const call = await twilio_service_1.TwilioService.makeCall({
-                        accountSid: twilioCreds.accountSid,
-                        authToken: twilioCreds.authToken,
-                    }, booking.customer.phone, twilioCreds.phoneNumber, twimlUrl, statusCallbackUrl);
-                    // Update Booking Status
-                    await prisma_1.default.booking.update({
-                        where: { id: booking.id },
-                        data: { lastCallStatus: 'queued', status: 'PENDING' } // Or 'Calling'
-                    });
-                    // Create CallLog
-                    await prisma_1.default.callLog.create({
-                        data: {
-                            bookingId: booking.id,
-                            sid: call.sid,
-                            callStatus: call.status,
-                            userId,
-                        }
-                    });
-                }
-                catch (error) {
-                    console.error(`Failed to call booking ${booking.id}:`, error);
-                    await prisma_1.default.booking.update({
-                        where: { id: booking.id },
-                        data: { lastCallStatus: 'failed' }
-                    });
-                }
-            });
-        });
+        await Promise.all(bookingsToCall.map((booking) => prisma_1.default.backgroundJob.create({
+            data: {
+                userId,
+                type: client_1.BackgroundJobType.CAMPAIGN_CALL,
+                payload: {
+                    userId,
+                    campaignId,
+                    bookingId: booking.id,
+                },
+                maxAttempts: 3,
+            },
+        })));
         return { message: 'Campaign started', count: bookingsToCall.length };
     }
 };
+async function processCampaignCallJob(userId, campaignId, bookingId) {
+    const booking = await prisma_1.default.booking.findFirst({
+        where: {
+            id: bookingId,
+            campaignId,
+            userId,
+        },
+        include: {
+            customer: true,
+        },
+    });
+    if (!booking) {
+        throw new Error(`Booking ${bookingId} was not found for campaign ${campaignId}`);
+    }
+    const existingCallLog = await prisma_1.default.callLog.findFirst({
+        where: {
+            bookingId,
+            userId,
+            sid: { not: null },
+        },
+        select: { id: true },
+    });
+    if (existingCallLog) {
+        return;
+    }
+    const twilioCreds = await (0, user_secrets_service_1.getUserTwilioCredentials)(userId);
+    if (!twilioCreds) {
+        throw new Error('Twilio credentials are not configured for this account.');
+    }
+    await prisma_1.default.booking.update({
+        where: { id: booking.id },
+        data: { lastCallStatus: 'dispatching' },
+    });
+    try {
+        const baseUrl = process.env.BASE_URL || 'http://localhost:5001';
+        const twimlUrl = `${baseUrl}/voice/outbound`;
+        const statusCallbackUrl = `${baseUrl}/webhooks/twilio`;
+        const call = await twilio_service_1.TwilioService.makeCall({
+            accountSid: twilioCreds.accountSid,
+            authToken: twilioCreds.authToken,
+        }, booking.customer.phone, twilioCreds.phoneNumber, twimlUrl, statusCallbackUrl);
+        await prisma_1.default.booking.update({
+            where: { id: booking.id },
+            data: { lastCallStatus: call.status || 'queued' }
+        });
+        await prisma_1.default.callLog.create({
+            data: {
+                bookingId: booking.id,
+                sid: call.sid,
+                callStatus: call.status,
+                userId,
+            }
+        });
+    }
+    catch (error) {
+        await prisma_1.default.booking.update({
+            where: { id: booking.id },
+            data: { lastCallStatus: 'failed' }
+        }).catch(() => { });
+        throw error;
+    }
+}
+function payloadField(payload, key) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return null;
+    }
+    const value = payload[key];
+    return typeof value === 'string' ? value : null;
+}
+async function finalizeCampaignDispatchIfIdle(payload) {
+    const campaignId = payloadField(payload, 'campaignId');
+    const userId = payloadField(payload, 'userId');
+    if (!campaignId || !userId) {
+        return;
+    }
+    const outstandingJobs = await prisma_1.default.$queryRaw `
+        SELECT COUNT(*)::bigint AS count
+        FROM "BackgroundJob"
+        WHERE "type" = 'CAMPAIGN_CALL'
+          AND "status" IN ('PENDING', 'PROCESSING', 'RETRY')
+          AND "payload"->>'campaignId' = ${campaignId}
+          AND COALESCE("payload"->>'userId', '') = ${userId}
+    `;
+    if (Number(outstandingJobs[0]?.count || 0) > 0) {
+        return;
+    }
+    await prisma_1.default.campaign.updateMany({
+        where: {
+            id: campaignId,
+            userId,
+            status: 'RUNNING',
+        },
+        data: {
+            status: 'COMPLETED',
+        },
+    });
+}

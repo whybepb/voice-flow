@@ -13,8 +13,10 @@ const openai_realtime_service_1 = require("./services/openai-realtime.service");
 const background_job_service_1 = require("./services/background-job.service");
 const background_job_handlers_1 = require("./services/background-job-handlers");
 const secret_crypto_1 = require("./utils/secret-crypto");
+const runtime_config_1 = require("./utils/runtime-config");
 const PORT = process.env.PORT || 5001;
 (0, secret_crypto_1.assertSecretEncryptionConfigured)();
+(0, runtime_config_1.assertRuntimeConfig)();
 // Create an HTTP server from the Express app
 const server = http_1.default.createServer(app_1.default);
 // Create a WebSocket server attached to the HTTP server (no automatic handling)

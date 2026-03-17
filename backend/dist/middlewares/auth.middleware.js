@@ -7,6 +7,7 @@ exports.authGuard = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const prisma_1 = __importDefault(require("../prisma"));
 const errorHandler_1 = require("./errorHandler");
+const runtime_config_1 = require("../utils/runtime-config");
 const authGuard = async (req, res, next) => {
     try {
         let token;
@@ -16,7 +17,7 @@ const authGuard = async (req, res, next) => {
         if (!token) {
             return next(new errorHandler_1.AppError('Not authorized, no token provided', 401));
         }
-        const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'secret');
+        const decoded = jsonwebtoken_1.default.verify(token, (0, runtime_config_1.getJwtSecret)());
         const user = await prisma_1.default.user.findUnique({
             where: { id: decoded.id },
             select: { id: true, email: true, role: true },

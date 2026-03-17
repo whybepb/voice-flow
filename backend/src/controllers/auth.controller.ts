@@ -6,11 +6,12 @@ import prisma from "../prisma";
 import { AppError } from "../middlewares/errorHandler";
 import { encryptSecret } from "../utils/secret-crypto";
 import { getRedactedCredentialStatus } from "../services/user-secrets.service";
+import { getJwtSecret } from "../utils/runtime-config";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (id: string) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || "secret", {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: "30d",
   });
 };

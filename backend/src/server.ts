@@ -9,9 +9,11 @@ import { handleMediaStream } from './services/openai-realtime.service';
 import { backgroundJobService } from './services/background-job.service';
 import { registerBackgroundJobHandlers } from './services/background-job-handlers';
 import { assertSecretEncryptionConfigured } from './utils/secret-crypto';
+import { assertRuntimeConfig } from './utils/runtime-config';
 
 const PORT = process.env.PORT || 5001;
 assertSecretEncryptionConfigured();
+assertRuntimeConfig();
 
 // Create an HTTP server from the Express app
 const server = http.createServer(app);

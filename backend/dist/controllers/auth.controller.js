@@ -11,9 +11,10 @@ const prisma_1 = __importDefault(require("../prisma"));
 const errorHandler_1 = require("../middlewares/errorHandler");
 const secret_crypto_1 = require("../utils/secret-crypto");
 const user_secrets_service_1 = require("../services/user-secrets.service");
+const runtime_config_1 = require("../utils/runtime-config");
 const googleClient = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const generateToken = (id) => {
-    return jsonwebtoken_1.default.sign({ id }, process.env.JWT_SECRET || "secret", {
+    return jsonwebtoken_1.default.sign({ id }, (0, runtime_config_1.getJwtSecret)(), {
         expiresIn: "30d",
     });
 };

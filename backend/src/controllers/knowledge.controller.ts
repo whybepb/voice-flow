@@ -3,14 +3,17 @@ import path from 'path';
 import prisma from '../prisma';
 import { AppError } from '../middlewares/errorHandler';
 import { getUserOpenAIKey } from '../services/user-secrets.service';
-import { enqueueKnowledgeIngestJob } from '../services/background-job-handlers';
+import {
+    enqueueKnowledgeIngestJob,
+    enqueueKnowledgeReindexJob,
+} from '../services/background-job-handlers';
 import {
     searchKnowledge,
     buildRAGPrompt,
     generateRAGAnswer,
     listDocuments,
     deleteDocument,
-    reindexDocument,
+    prepareDocumentReindex,
 } from '../services/rag.service';
 
 // ─── Upload & Ingest ───────────────────────────────────────────────
@@ -94,19 +97,25 @@ export const deleteKnowledgeDoc = async (req: Request, res: Response, next: Next
 // ─── Re-index Document ──────────────────────────────────────────────
 
 export const reindexKnowledgeDoc = async (req: Request, res: Response, next: NextFunction) => {
+    const id = req.params.id as string;
     try {
-        const id = req.params.id as string;
-        const success = await reindexDocument(req.user!.id, id);
+        const success = await prepareDocumentReindex(req.user!.id, id);
 
         if (!success) {
             return next(new AppError('Document not found or you do not have permission', 404));
         }
 
+        await enqueueKnowledgeReindexJob(req.user!.id, id);
+
         res.status(200).json({
             status: 'success',
-            message: 'Document re-indexing started. This will complete in the background.',
+            message: 'Document re-indexing was queued and will complete in the background.',
         });
     } catch (error) {
+        await prisma.knowledgeDocument.update({
+            where: { id },
+            data: { status: 'FAILED' },
+        }).catch(() => { });
         next(error);
     }
 };

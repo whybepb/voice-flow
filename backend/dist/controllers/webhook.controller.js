@@ -32,27 +32,11 @@ const handleTwilioWebhook = async (req, res, next) => {
                     recordingUrl: RecordingUrl,
                 }
             });
-            // Also update Booking status based on CallStatus
-            // If completed, maybe mark booking as 'Contacted' or keep as is?
-            // If failed/busy/no-answer -> mark booking as 'Failed Attempt'
-            if (['completed', 'answered'].includes(CallStatus.toLowerCase())) {
-                await prisma_1.default.booking.update({
-                    where: { id: existingLog.bookingId },
-                    data: { lastCallStatus: CallStatus, status: 'CONFIRMED' } // <--- Mark as CONFIRMED
-                });
-            }
-            else if (['busy', 'no-answer', 'failed', 'canceled'].includes(CallStatus.toLowerCase())) {
-                await prisma_1.default.booking.update({
-                    where: { id: existingLog.bookingId },
-                    data: { lastCallStatus: CallStatus, status: 'CANCELLED' } // <--- Mark as CANCELLED
-                });
-            }
-            else {
-                await prisma_1.default.booking.update({
-                    where: { id: existingLog.bookingId },
-                    data: { lastCallStatus: CallStatus }
-                });
-            }
+            // Twilio delivery status is operational metadata, not appointment state.
+            await prisma_1.default.booking.update({
+                where: { id: existingLog.bookingId },
+                data: { lastCallStatus: CallStatus }
+            });
         }
         else {
             console.warn(`Received webhook for unknown CallSid: ${CallSid}`);

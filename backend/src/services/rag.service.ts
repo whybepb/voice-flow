@@ -249,11 +249,7 @@ export async function deleteDocument(userId: string, documentId: string): Promis
     return true;
 }
 
-/**
- * Re-index a document: delete existing chunks, re-extract, re-chunk, re-embed.
- * Runs async — returns immediately after setting status to PROCESSING.
- */
-export async function reindexDocument(
+export async function prepareDocumentReindex(
     userId: string,
     documentId: string,
 ): Promise<boolean> {
@@ -263,23 +259,31 @@ export async function reindexDocument(
 
     if (!doc) return false;
 
-    // Delete existing chunks
     await prisma.knowledgeChunk.deleteMany({
         where: { documentId },
     });
 
-    // Reset status
     await prisma.knowledgeDocument.update({
         where: { id: documentId },
         data: { status: 'PROCESSING', chunkCount: 0 },
     });
 
-    // Re-ingest using stored raw content (no file needed)
-    reindexFromContent(documentId, doc.rawContent).catch((err) => {
-        console.error(`[RAG] Re-index failed for ${documentId}:`, err);
+    return true;
+}
+
+export async function reindexDocumentFromStoredContent(
+    documentId: string,
+): Promise<void> {
+    const doc = await prisma.knowledgeDocument.findUnique({
+        where: { id: documentId },
+        select: { rawContent: true },
     });
 
-    return true;
+    if (!doc) {
+        throw new Error(`Knowledge document ${documentId} not found`);
+    }
+
+    await reindexFromContent(documentId, doc.rawContent);
 }
 
 /**
