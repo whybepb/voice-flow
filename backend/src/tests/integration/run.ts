@@ -6,6 +6,11 @@ import app from "../../app";
 import prisma from "../../prisma";
 import { backgroundJobService } from "../../services/background-job.service";
 import { registerBackgroundJobHandlers } from "../../services/background-job-handlers";
+import {
+  composeSystemPrompt,
+  executeToolCall,
+  resolveRealtimeProfile,
+} from "../../services/openai-realtime.service";
 
 type JsonValue = Record<string, any>;
 
@@ -165,6 +170,41 @@ async function main() {
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
   try {
+    console.log("[integration] Running realtime profile checks...");
+    const inboundProfile = resolveRealtimeProfile({});
+    assert.equal(inboundProfile.model, "gpt-realtime-mini");
+    assert.equal(inboundProfile.voice, "cedar");
+
+    const inheritedCampaignProfile = resolveRealtimeProfile({
+      voiceMode: "PREMIUM",
+      userVoice: "sage",
+    });
+    assert.equal(inheritedCampaignProfile.model, "gpt-realtime");
+    assert.equal(inheritedCampaignProfile.voice, "sage");
+
+    const overriddenCampaignProfile = resolveRealtimeProfile({
+      voiceMode: "PREMIUM",
+      userVoice: "sage",
+      voiceOverride: "marin",
+      userPrompt: "Speak with confident warmth.",
+    });
+    assert.equal(overriddenCampaignProfile.voice, "marin");
+    assert.match(
+      overriddenCampaignProfile.instructions,
+      /Role & Objective/,
+      "system prompt should include labeled realtime sections",
+    );
+    assert.match(
+      overriddenCampaignProfile.instructions,
+      /Variety/,
+      "system prompt should include anti-robotic variety guidance",
+    );
+    assert.match(
+      composeSystemPrompt("Use a calm, reassuring tone."),
+      /Use a calm, reassuring tone\./,
+      "editable prompt should be wrapped inside the hidden system prompt",
+    );
+
     console.log("[integration] Running auth flow...");
     const user1 = await registerAndOnboard(baseUrl, "a");
     const meRes = await requestJson(baseUrl, "/auth/me", { method: "GET" }, user1.token);
@@ -180,6 +220,8 @@ async function main() {
         body: JSON.stringify({
           name: "Integration Campaign",
           type: "Appointment Reminder",
+          voiceMode: "premium",
+          agentVoiceOverride: "marin",
           phoneNumbers: ["4155552671", "+14155552672", "invalid-number"],
         }),
       },
@@ -188,6 +230,8 @@ async function main() {
     assert.equal(campaignRes.status, 201, "campaign create should return 201");
     const campaignId = campaignRes.body?.campaign?.id as string;
     assert.ok(campaignId, "campaign id missing");
+    assert.equal(campaignRes.body?.campaign?.voiceMode, "PREMIUM");
+    assert.equal(campaignRes.body?.campaign?.agentVoiceOverride, "marin");
 
     const startRes = await requestJson(
       baseUrl,
@@ -199,10 +243,92 @@ async function main() {
     assert.ok(startRes.body?.count >= 1, "campaign start should enqueue at least one call");
     await waitForCampaignStatus(baseUrl, user1.token, campaignId, "COMPLETED");
 
+    const inheritedCampaignRes = await requestJson(
+      baseUrl,
+      "/campaigns",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Inherited Voice Campaign",
+          type: "Appointment Reminder",
+          voiceMode: "default",
+          phoneNumbers: ["+14155552673"],
+        }),
+      },
+      user1.token,
+    );
+    assert.equal(inheritedCampaignRes.status, 201, "default campaign create should return 201");
+    assert.equal(inheritedCampaignRes.body?.campaign?.voiceMode, "DEFAULT");
+    assert.equal(inheritedCampaignRes.body?.campaign?.agentVoiceOverride, null);
+
+    const settingsRes = await requestJson(
+      baseUrl,
+      "/auth/settings",
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          agentVoice: "sage",
+          agentPrompt: "Keep a reassuring, appointment-focused tone.",
+        }),
+      },
+      user1.token,
+    );
+    assert.equal(settingsRes.status, 200, "settings update should return 200");
+
+    const meAfterSettings = await requestJson(baseUrl, "/auth/me", { method: "GET" }, user1.token);
+    assert.equal(meAfterSettings.status, 200, "/auth/me after settings should return 200");
+    assert.equal(meAfterSettings.body?.data?.agentVoice, "sage");
+    assert.equal(
+      meAfterSettings.body?.data?.agentPrompt,
+      "Keep a reassuring, appointment-focused tone.",
+    );
+    const user1Id = meAfterSettings.body?.data?.id as string;
+    assert.ok(user1Id, "user id should be available after settings refresh");
+
     const callLogsRes = await requestJson(baseUrl, "/call-logs", { method: "GET" }, user1.token);
     assert.equal(callLogsRes.status, 200, "call logs should return 200");
     const firstCallLog = callLogsRes.body?.data?.callLogs?.[0];
     assert.ok(firstCallLog?.sid, "campaign dispatch should create a call log");
+
+    const bookingsAfterDispatch = await requestJson(baseUrl, "/bookings", { method: "GET" }, user1.token);
+    assert.equal(bookingsAfterDispatch.status, 200, "bookings list after dispatch should return 200");
+    const firstBooking = (bookingsAfterDispatch.body?.data?.bookings || []).find(
+      (item: any) => item.id === firstCallLog.bookingId,
+    );
+    assert.ok(firstBooking?.id, "first booking should be available for tool checks");
+
+    const rescheduleWithoutConfirm = JSON.parse(
+      await executeToolCall(
+        "reschedule_booking",
+        {
+          booking_id: firstBooking.id,
+          new_date_time: "2026-04-01T14:00:00.000Z",
+          confirmed: false,
+        },
+        user1Id,
+      ),
+    );
+    assert.equal(
+      rescheduleWithoutConfirm.confirmation_required,
+      true,
+      "reschedule tool should require explicit confirmation",
+    );
+
+    const cancelWithoutConfirm = JSON.parse(
+      await executeToolCall(
+        "cancel_booking",
+        {
+          booking_id: firstBooking.id,
+          confirmed: false,
+        },
+        user1Id,
+      ),
+    );
+    assert.equal(
+      cancelWithoutConfirm.confirmation_required,
+      true,
+      "cancel tool should require explicit confirmation",
+    );
 
     const webhookRes = await requestJson(
       baseUrl,

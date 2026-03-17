@@ -15,6 +15,8 @@ interface CampaignData {
     name: string;
     type: string;
     status: string;
+    voiceMode: 'DEFAULT' | 'PREMIUM';
+    agentVoiceOverride: string | null;
     createdAt: string;
     bookings: {
         id: string;
@@ -28,6 +30,8 @@ interface TableCampaign {
     name: string;
     type: string;
     status: string;
+    voiceMode: string;
+    voice: string;
     date: string;
     sent: number;
     connected: number;
@@ -153,6 +157,8 @@ export default function CampaignsPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [campaignName, setCampaignName] = useState('');
     const [campaignType, setCampaignType] = useState('Appointment Reminder');
+    const [voiceMode, setVoiceMode] = useState<'default' | 'premium'>('default');
+    const [campaignVoiceOverride, setCampaignVoiceOverride] = useState('inherit');
     const [manualNumbers, setManualNumbers] = useState('');
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -179,6 +185,8 @@ export default function CampaignsPage() {
                     name: c.name,
                     type: c.type,
                     status: c.status,
+                    voiceMode: c.voiceMode === 'PREMIUM' ? 'Premium' : 'Default',
+                    voice: c.agentVoiceOverride || 'Inherited',
                     date: new Date(c.createdAt).toLocaleDateString(),
                     sent: totalBookings,
                     connected,
@@ -315,7 +323,9 @@ export default function CampaignsPage() {
             const createRes = await api.post('/campaigns', {
                 name: campaignName,
                 type: campaignType,
-                phoneNumbers
+                phoneNumbers,
+                voiceMode,
+                agentVoiceOverride: campaignVoiceOverride === 'inherit' ? null : campaignVoiceOverride,
             });
 
             // Start the campaign immediately
@@ -326,6 +336,8 @@ export default function CampaignsPage() {
 
             setModalOpen(false);
             setCampaignName('');
+            setVoiceMode('default');
+            setCampaignVoiceOverride('inherit');
             setManualNumbers('');
             setCsvFile(null);
             setCsvHeaders([]);
@@ -362,6 +374,8 @@ export default function CampaignsPage() {
     const columns = [
         { header: 'Campaign Name', accessor: 'name', render: (row: TableCampaign) => <span className="font-medium text-foreground">{row.name}</span> },
         { header: 'Type', accessor: 'type' },
+        { header: 'Mode', accessor: 'voiceMode' },
+        { header: 'Voice', accessor: 'voice' },
         { header: 'Status', accessor: 'status', render: (row: TableCampaign) => <StatusBadge status={row.status} /> },
         { header: 'Sent', accessor: 'sent' },
         { header: 'Connected', accessor: 'connected' },
@@ -453,6 +467,53 @@ export default function CampaignsPage() {
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                             </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Call Quality Mode</label>
+                            <div className="relative">
+                                <select
+                                    value={voiceMode}
+                                    onChange={(e) => {
+                                        setVoiceMode(e.target.value as 'default' | 'premium');
+                                    }}
+                                    className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer transition-all appearance-none">
+                                    <option value="default">Default (gpt-realtime-mini)</option>
+                                    <option value="premium">Premium (gpt-realtime)</option>
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-2">
+                                Default keeps call costs lower. Premium uses the higher-quality realtime model for campaign calls.
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Campaign Voice</label>
+                            <div className="relative">
+                                <select
+                                    value={campaignVoiceOverride}
+                                    onChange={(e) => setCampaignVoiceOverride(e.target.value)}
+                                    className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer transition-all appearance-none">
+                                    <option value="inherit">Use account default voice</option>
+                                    <option value="cedar">Cedar (Recommended default)</option>
+                                    <option value="marin">Marin (Recommended premium)</option>
+                                    <option value="ash">Ash</option>
+                                    <option value="coral">Coral</option>
+                                    <option value="echo">Echo</option>
+                                    <option value="sage">Sage</option>
+                                    <option value="shimmer">Shimmer</option>
+                                    <option value="alloy">Alloy</option>
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-2">
+                                Leave this on the account default unless you want this campaign to sound different.
+                            </p>
                         </div>
                     </div>
                     <div>

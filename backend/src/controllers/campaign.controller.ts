@@ -5,8 +5,16 @@ import { AppError } from '../middlewares/errorHandler';
 
 export const createCampaign = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { name, type, scheduledAt, phoneNumbers } = req.body;
-        const campaign = await CampaignService.createCampaign(req.user!.id, name, type, scheduledAt, phoneNumbers);
+        const { name, type, scheduledAt, phoneNumbers, voiceMode, agentVoiceOverride } = req.body;
+        const campaign = await CampaignService.createCampaign(
+            req.user!.id,
+            name,
+            type,
+            scheduledAt,
+            phoneNumbers,
+            voiceMode,
+            agentVoiceOverride,
+        );
         res.status(201).json({ message: 'Campaign created', campaign });
     } catch (error) {
         next(error);

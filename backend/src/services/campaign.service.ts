@@ -3,6 +3,8 @@ import { BackgroundJobType, BookingStatus, Prisma } from '@prisma/client';
 import { TwilioService } from './twilio.service';
 import { getUserTwilioCredentials } from './user-secrets.service';
 
+type VoiceModeValue = 'DEFAULT' | 'PREMIUM';
+
 function normalizePhoneNumber(value: string): string | null {
     let candidate = value.trim().replace(/[\s\-().]/g, '');
     if (!candidate) return null;
@@ -29,12 +31,22 @@ function normalizePhoneNumber(value: string): string | null {
 }
 
 export const CampaignService = {
-    createCampaign: async (userId: string, name: string, type: string, scheduledAt?: string, phoneNumbers?: string[]) => {
+    createCampaign: async (
+        userId: string,
+        name: string,
+        type: string,
+        scheduledAt?: string,
+        phoneNumbers?: string[],
+        voiceMode?: string,
+        agentVoiceOverride?: string,
+    ) => {
         const normalizedPhones = Array.from(new Set(
             (phoneNumbers || [])
                 .map((phone) => normalizePhoneNumber(phone))
                 .filter((phone): phone is string => Boolean(phone))
         ));
+        const normalizedVoiceMode = normalizeVoiceMode(voiceMode);
+        const normalizedVoiceOverride = normalizeVoiceOverride(agentVoiceOverride);
 
         if ((phoneNumbers?.length || 0) > 0 && normalizedPhones.length === 0) {
             throw new Error('No valid phone numbers found. Use E.164 format (e.g., +14155552671).');
@@ -46,6 +58,8 @@ export const CampaignService = {
                 type,
                 scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
                 status: 'DRAFT',
+                voiceMode: normalizedVoiceMode,
+                agentVoiceOverride: normalizedVoiceOverride,
                 userId,
             },
         });
@@ -166,6 +180,19 @@ export const CampaignService = {
         return { message: 'Campaign started', count: bookingsToCall.length };
     }
 };
+
+function normalizeVoiceMode(value?: string): VoiceModeValue {
+    if (value === 'PREMIUM' || value === 'premium') {
+        return 'PREMIUM';
+    }
+    return 'DEFAULT';
+}
+
+function normalizeVoiceOverride(value?: string): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
 
 export async function processCampaignCallJob(
     userId: string,

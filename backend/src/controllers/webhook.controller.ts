@@ -1,6 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../prisma';
 
+async function findCallLogWithRetry(callSid: string, attempts = 5, delayMs = 400) {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        const existingLog = await prisma.callLog.findUnique({
+            where: { sid: callSid }
+        });
+
+        if (existingLog) {
+            return existingLog;
+        }
+
+        if (attempt < attempts - 1) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+    }
+
+    return null;
+}
+
 export const handleTwilioWebhook = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { CallSid, CallStatus, RecordingUrl, Duration } = req.body;
@@ -22,9 +40,7 @@ export const handleTwilioWebhook = async (req: Request, res: Response, next: Nex
         // Twilio sends multiple updates (initiated, ringing, answered, completed)
 
         // Check if CallLog exists
-        const existingLog = await prisma.callLog.findUnique({
-            where: { sid: CallSid }
-        });
+        const existingLog = await findCallLogWithRetry(CallSid);
 
         if (existingLog) {
             await prisma.callLog.update({
@@ -44,7 +60,6 @@ export const handleTwilioWebhook = async (req: Request, res: Response, next: Nex
 
         } else {
             console.warn(`Received webhook for unknown CallSid: ${CallSid}`);
-            // Optionally create a new log if we want to track unsolicited calls?
         }
 
         res.status(200).send('OK');

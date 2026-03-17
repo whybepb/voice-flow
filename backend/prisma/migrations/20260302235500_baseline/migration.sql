@@ -16,6 +16,9 @@ CREATE TYPE "BackgroundJobType" AS ENUM ('KNOWLEDGE_INGEST', 'KNOWLEDGE_REINDEX'
 -- CreateEnum
 CREATE TYPE "BackgroundJobStatus" AS ENUM ('PENDING', 'PROCESSING', 'RETRY', 'COMPLETED', 'FAILED');
 
+-- CreateEnum
+CREATE TYPE "VoiceMode" AS ENUM ('DEFAULT', 'PREMIUM');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -29,8 +32,8 @@ CREATE TABLE "User" (
     "openaiApiKey" TEXT,
     "onboardingComplete" BOOLEAN NOT NULL DEFAULT false,
     "role" "Role" NOT NULL DEFAULT 'USER',
-    "agentVoice" TEXT DEFAULT 'alloy',
-    "agentPrompt" TEXT DEFAULT 'You are a helpful AI assistant representing the company. Be professional and concise.',
+    "agentVoice" TEXT DEFAULT 'cedar',
+    "agentPrompt" TEXT DEFAULT 'You are the business''s AI phone assistant. Help callers clearly, warmly, and efficiently.',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -87,6 +90,8 @@ CREATE TABLE "Campaign" (
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'DRAFT',
+    "voiceMode" "VoiceMode" NOT NULL DEFAULT 'DEFAULT',
+    "agentVoiceOverride" TEXT,
     "scheduledAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

@@ -9,8 +9,8 @@ const prisma_1 = __importDefault(require("../prisma"));
 const errorHandler_1 = require("../middlewares/errorHandler");
 const createCampaign = async (req, res, next) => {
     try {
-        const { name, type, scheduledAt, phoneNumbers } = req.body;
-        const campaign = await campaign_service_1.CampaignService.createCampaign(req.user.id, name, type, scheduledAt, phoneNumbers);
+        const { name, type, scheduledAt, phoneNumbers, voiceMode, agentVoiceOverride } = req.body;
+        const campaign = await campaign_service_1.CampaignService.createCampaign(req.user.id, name, type, scheduledAt, phoneNumbers, voiceMode, agentVoiceOverride);
         res.status(201).json({ message: 'Campaign created', campaign });
     }
     catch (error) {

@@ -14,7 +14,7 @@ export default function SettingsPage() {
     const [formData, setFormData] = useState({
         name: '',
         company: '',
-        agentVoice: 'alloy',
+        agentVoice: 'cedar',
         agentPrompt: '',
     });
 
@@ -26,8 +26,8 @@ export default function SettingsPage() {
                     setFormData({
                         name: res.data.name || '',
                         company: res.data.company || '',
-                        agentVoice: res.data.agentVoice || 'alloy',
-                        agentPrompt: res.data.agentPrompt || 'You are a helpful AI assistant representing the company. Be professional and concise.',
+                        agentVoice: res.data.agentVoice || 'cedar',
+                        agentPrompt: res.data.agentPrompt || "You are the business's AI phone assistant. Help callers clearly, warmly, and efficiently.",
                     });
                 }
             } catch (err) {
@@ -62,7 +62,7 @@ export default function SettingsPage() {
             {/* Page Header */}
             <FadeIn>
                 <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
-                <p className="text-sm text-muted-foreground mt-1.5">Configure your booking automation preferences</p>
+                <p className="text-sm text-muted-foreground mt-1.5">Configure your booking automation and AI phone assistant preferences</p>
             </FadeIn>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -194,12 +194,12 @@ export default function SettingsPage() {
                             </div>
                             <div>
                                 <h2 className="text-[15px] font-bold text-foreground">Voice Agent</h2>
-                                <p className="text-[12px] text-muted-foreground">Configure AI voice call settings</p>
+                                <p className="text-[12px] text-muted-foreground">Configure the default inbound voice and your editable call instructions</p>
                             </div>
                         </div>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Voice Model</label>
+                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Default Inbound Voice</label>
                                 <div className="relative">
                                     <select
                                         name="agentVoice"
@@ -207,30 +207,35 @@ export default function SettingsPage() {
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 cursor-pointer transition-all appearance-none"
                                     >
-                                        <option value="alloy">Alloy (Neutral, versatile)</option>
-                                        <option value="echo">Echo (Warm, approachable)</option>
-                                        <option value="shimmer">Shimmer (Clear, articulate)</option>
+                                        <option value="cedar">Cedar (Recommended default, natural)</option>
+                                        <option value="marin">Marin (Premium-sounding, polished)</option>
                                         <option value="ash">Ash (Professional, male)</option>
                                         <option value="coral">Coral (Friendly, female)</option>
+                                        <option value="echo">Echo (Warm, approachable)</option>
                                         <option value="sage">Sage (Calm, authoritative)</option>
+                                        <option value="shimmer">Shimmer (Clear, articulate)</option>
+                                        <option value="alloy">Alloy (Legacy neutral)</option>
                                     </select>
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </div>
                                 </div>
+                                <p className="text-[11px] text-muted-foreground mt-2">
+                                    Inbound calls always use the default quality path. Campaigns can optionally switch to premium and override the voice.
+                                </p>
                             </div>
                             <div>
-                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">System Instructions (Personality & Rules)</label>
+                                <label className="block text-[13px] font-semibold text-foreground/80 mb-2">Editable Call Instructions</label>
                                 <textarea
                                     name="agentPrompt"
                                     value={formData.agentPrompt}
                                     onChange={handleChange}
                                     rows={5}
                                     className="w-full px-4 py-3 bg-white/5 rounded-xl border border-white/5 text-sm text-foreground outline-none focus:border-primary/50 transition-all resize-none"
-                                    placeholder="You are a helpful and enthusiastic AI voice assistant..."
+                                    placeholder="Describe your tone, business rules, escalation preferences, and any business-specific behavior..."
                                 />
                                 <p className="text-[11px] text-muted-foreground mt-2">
-                                    Define how the AI should behave during the call.
+                                    Your text is wrapped inside a system-managed realtime prompt that handles phone etiquette, confirmations, tool usage, and interruption behavior.
                                 </p>
                             </div>
                         </div>

@@ -4,10 +4,13 @@ import { createHash } from 'node:crypto';
 const EMBEDDING_MODEL = 'text-embedding-3-small'; // 1536 dimensions, $0.02/1M tokens
 const MAX_BATCH_SIZE = 2048;
 const EMBEDDING_DIM = 1536;
-const USE_MOCK_EMBEDDINGS = process.env.MOCK_OPENAI_EMBEDDINGS === 'true';
 
 function getOpenAI(apiKey: string) {
     return new OpenAI({ apiKey });
+}
+
+function shouldUseMockEmbeddings() {
+    return process.env.MOCK_OPENAI_EMBEDDINGS === 'true';
 }
 
 function mockEmbedding(text: string): number[] {
@@ -25,7 +28,7 @@ function mockEmbedding(text: string): number[] {
  * Uses OpenAI text-embedding-3-small (1536 dimensions).
  */
 export async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-    if (USE_MOCK_EMBEDDINGS) {
+    if (shouldUseMockEmbeddings()) {
         return mockEmbedding(text);
     }
 
@@ -44,7 +47,7 @@ export async function generateEmbedding(text: string, apiKey: string): Promise<n
  */
 export async function generateEmbeddings(texts: string[], apiKey: string): Promise<number[][]> {
     if (texts.length === 0) return [];
-    if (USE_MOCK_EMBEDDINGS) {
+    if (shouldUseMockEmbeddings()) {
         return texts.map((text) => mockEmbedding(text));
     }
 

@@ -21,8 +21,8 @@ model User {
   openaiApiKey      String?
   onboardingComplete Boolean @default(false)
   role      Role     @default(USER)
-  agentVoice      String?  @default("alloy")
-  agentPrompt     String?  @default("You are a helpful AI assistant representing the company. Be professional and concise.")
+  agentVoice      String?  @default("cedar")
+  agentPrompt     String?  @default("You are the business's AI phone assistant. Help callers clearly, warmly, and efficiently.")
   createdAt DateTime @default(now())
   customers      Customer[]
   campaigns      Campaign[]
@@ -84,6 +84,8 @@ model Campaign {
   name        String
   type        String    // e.g., "Confirmation", "Reminder"
   status      String    @default("DRAFT") // DRAFT, RUNNING, COMPLETED, PAUSED
+  voiceMode   VoiceMode @default(DEFAULT)
+  agentVoiceOverride String?
   scheduledAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -174,4 +176,9 @@ enum BackgroundJobStatus {
   RETRY
   COMPLETED
   FAILED
+}
+
+enum VoiceMode {
+  DEFAULT
+  PREMIUM
 }

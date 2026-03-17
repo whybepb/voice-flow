@@ -34,10 +34,12 @@ function normalizePhoneNumber(value) {
     return candidate;
 }
 exports.CampaignService = {
-    createCampaign: async (userId, name, type, scheduledAt, phoneNumbers) => {
+    createCampaign: async (userId, name, type, scheduledAt, phoneNumbers, voiceMode, agentVoiceOverride) => {
         const normalizedPhones = Array.from(new Set((phoneNumbers || [])
             .map((phone) => normalizePhoneNumber(phone))
             .filter((phone) => Boolean(phone))));
+        const normalizedVoiceMode = normalizeVoiceMode(voiceMode);
+        const normalizedVoiceOverride = normalizeVoiceOverride(agentVoiceOverride);
         if ((phoneNumbers?.length || 0) > 0 && normalizedPhones.length === 0) {
             throw new Error('No valid phone numbers found. Use E.164 format (e.g., +14155552671).');
         }
@@ -47,6 +49,8 @@ exports.CampaignService = {
                 type,
                 scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
                 status: 'DRAFT',
+                voiceMode: normalizedVoiceMode,
+                agentVoiceOverride: normalizedVoiceOverride,
                 userId,
             },
         });
@@ -148,6 +152,18 @@ exports.CampaignService = {
         return { message: 'Campaign started', count: bookingsToCall.length };
     }
 };
+function normalizeVoiceMode(value) {
+    if (value === 'PREMIUM' || value === 'premium') {
+        return 'PREMIUM';
+    }
+    return 'DEFAULT';
+}
+function normalizeVoiceOverride(value) {
+    if (!value)
+        return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
 async function processCampaignCallJob(userId, campaignId, bookingId) {
     const booking = await prisma_1.default.booking.findFirst({
         where: {
